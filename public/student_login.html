@@ -1,0 +1,429 @@
+<!-- 
+  LOGIN.HTML
+    LOGIN IS USING JAVASCRIPT PROGRAMMATICALLY
+    AVOIDING DEFAULT FORM SUBMIT 
+    WHILE REDIRECTING TO HOME PAGE IN JS USING 
+    ANOTHER HIDDEN FORM IN HTML
+
+    STEPS:
+      LOGIN CLICK CALLBACK
+      VALIDATE INPUT
+      SEND POST REQUEST WITH THE INPUTS
+      REDIRECT TO HOME PAGE USING HIDDEN FORM
+
+ -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="./img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./img/favicon-16x16.png">
+    <link rel="manifest" href="./img/site.webmanifest">
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.11.2/css/all.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=yes">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!------ Include the above in your HEAD tag ---------->
+
+    <style type="text/css">
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #ffffff;
+        }
+
+        .parentLogin {
+            height: 100vh;
+            position: relative;
+            width: 100%;
+        }
+
+        .formDiv {
+            /* background: #9651b19a; */
+            background-image: linear-gradient(143deg, #0c5187b0 0%, #6fa6cfa2 80%);
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            -webkit-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+            border-radius: 4px;
+            width: 360px;
+            max-width: 500px;
+            padding: 30px 20px;
+        }
+
+        .formDiv button[type="submit"] {
+            background: #175c8f;
+            color: #ffffff;
+            font-size: 17px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        #loginForm_email,
+        #loginForm_password {
+            position: relative;
+        }
+
+        #loginForm_email .fas.fa-mobile,
+        #loginForm_password .fas.fa-key {
+            position: absolute;
+            top: 50%;
+            right: 5px;
+            color: #175c8f;
+            font-size: 18px;
+            transform: translate(-2px, -50%);
+        }
+
+        .formDiv input {
+            padding: 15px;
+            color: rgb(255, 255, 255);
+            background-color: transparent;
+            border: 0;
+            border-bottom: 2.5px solid;
+            border-color: #175c8f;
+            outline: none;
+            border-radius: 3px;
+            width: 100%;
+        }
+
+        .formDiv input::placeholder {
+            font-weight: 400;
+            line-height: 26px;
+            color: rgb(221, 209, 35);
+            font-weight: 400;
+            background-color: transparent;
+        }
+
+        .formDiv input:focus {
+            box-shadow: 0 0px 0px rgb(20, 20, 20);
+            outline: 0 none;
+            background-color: #fffffff3;
+            border-color: #076d2e;
+            color: rgb(12, 94, 145);
+        }
+
+        @media (max-width: 899.98px) {
+            .formDiv {
+                width: 80%;
+                margin: auto;
+            }
+        }
+
+        .newUresActive {
+            background-color: #175c8f !important;
+            color: #ffffff !important;
+            font-weight: 700;
+        }
+
+        #user-tablinks-Section ul li a {
+            color: #ebebeb;
+        }
+
+        #warningAlertModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 99999999999;
+            left: -100%;
+            display: none;
+        }
+
+        #warningAlertModal .container {
+            position: absolute;
+            text-align: center;
+            top: 50%;
+            left: 50%;
+            width: 40% !important;
+            -moz-transform: translate(-50%, -50%);
+            -ms-transform: translate(-50%, -50%);
+            -webkit-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.925);
+        }
+
+        @media (max-width: 899.98px) {
+
+            #notifyModal .container,
+            #warningAlertModal .container {
+                width: 85% !important;
+            }
+        }
+
+        .rgba-darkBlue {
+            background-color: #0965a7eb;
+        }
+
+        .rgba-black-light {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+    <title>Login - MASS</title>
+</head>
+
+<body>
+
+
+
+    <div class="parentLogin">
+        <div class="formDiv shadow">
+            <form id="login_form" class="p-md-2 p-1 pt-2 m-auto">
+
+                <div class="form-group" id="loginForm_email">
+                    <input type="text" class="form-control mb-3" id="login" placeholder="Mobile">
+                    <i class="fas fa-mobile"></i>
+                </div>
+
+                <div class="form-group" id="loginForm_password">
+                    <input type="password" class="form-control mb-4" id="password" placeholder="Password">
+                    <i class="fas fa-key"></i>
+                </div>
+                <button type="submit" class="btn px-3 py-2 mt-4 w-100" onclick="onLogin()">Login</button>
+                <p class="text-center text-white pt-4">For Subscriptions Call 00201223967940</p>
+                <div id="post_login_status" style="display:none;"
+                    class="mt-4 alert alert-danger text-center text-danger text-capitalize p-2 px-md-3 py-md-2 ">Invalid
+                    Phone No. or/and Password</div>
+            </form>
+        </div>
+
+        <div style="height: 100%; overflow: hidden;"><svg viewBox="0 0 420 170" preserveAspectRatio="none"
+                style="height: 100%; width: 100%;">
+                <path d="M-10.44,98.19 C158.29,178.13 384.02,-37.00 516.64,128.78 L505.36,175.16 L-4.22,195.88 Z"
+                    style="stroke: none; fill: #0965a7eb;"></path>
+            </svg></div>
+    </div>
+    <div class="w-100 h-100 rgba-black-light" id="warningAlertModal">
+        <div class="overlay"></div>
+        <div class="container pt-3 card w-75">
+            <div class="d-flex flex-column align-items-center">
+                <i class="fas fa-bell text-warning fa-3x my-3  p-2"></i>
+                <p id='warningAlertModal_paragraph' class="text-center text-capitalize"></p>
+            </div>
+
+            <div class="border-top py-2 mt-2 d-flex justify-content-end">
+                <button class="btn rgba-darkBlue text-white font-weight-bolder text-uppercase rounded"
+                    id="warningAlertModal_continue">Go</button>
+                
+            </div>
+        </div>
+    </div>
+    <!-- DUMMY HTML, JUST A FORM TO USE POST REQUEST & DIRECT TO HOME PAGE AFTER SUCCESFUL LOGIN -->
+    <form style="display: none" action="/" method="POST" id="hidden_redirect_form">
+        <input type="hidden" id="hidden_login_text_username" name="username" value="" />
+        <input type="hidden" id="hidden_login_text_email" name="email" value="" />
+        <input type="hidden" id="hidden_login_text_password" name="password" value="" />
+        <input type="hidden" id="hidden_login_text_token" name="token" value="" />
+    </form>
+
+    <script type="text/javascript" src="js/BooTStrape/jquery-3.4.1.min.js"></script>
+    <!-- Bootstrap tooltips -->
+    <script type="text/javascript" src="js/BooTStrape/popper.min.js"></script>
+    <script src="js/BooTStrape/bootstrap.bundle.min.js"></script>
+
+
+    <script>
+
+        function warningAlert(msg, nextContinue, nextCancel) {
+
+
+            $('#warningAlertModal').show().animate({ left: '0' })
+            document.querySelector('#warningAlertModal_paragraph').innerHTML = '';
+            document.querySelector('#warningAlertModal_paragraph').innerHTML = msg;
+
+             document.querySelector('#warningAlertModal_close').onclick = function () {
+                 //document.querySelector('#warningAlertModal').classList.add('d-none');
+                 $('#warningAlertModal').animate({ left: '-100%' }, () => {
+                     $('#warningAlertModal').hide()
+                 })
+                 if (nextCancel != undefined) nextCancel();
+             }
+            document.querySelector('#warningAlertModal_continue').onclick = function () {
+                //document.querySelector('#warningAlertModal').classList.add('d-none');
+                $('#warningAlertModal').animate({ left: '-100%' }, () => {
+                    $('#warningAlertModal').hide()
+                })
+                if (nextContinue != undefined) nextContinue();
+            }
+        };
+        // NOTICE: 
+        // HERE WE SUBMIT FORM DATA USING JAVASCRIPT NOT THE DEFAULT HTML FORM SUBMIT
+        // TO GIVE A SPACE FOR DEALING WITH FUTURE UPDATE OF THE WAY WE AUTHENTICATE
+        // AND TO ALLOW THE SERVER TO SERVE CROSS PLATFORM REQUESTS 
+
+        //$("#form").submit();
+        let currentVersion = '2.0.0'
+        $.ajax({
+            url: '../version-auth',
+            type: 'get',
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            success: (result) => {
+                //console.log('ajax success login respond, recieved data: ' + JSON.stringify(recievedData));
+                if ( result.currentOS == "AndroidOS") {
+                    warningAlert('update available in play store', () => {
+                        window.location.href = "http://play.google.com/store/apps/details?id=com.masscourses";
+                    })
+                } else if (result.lastValidVersions.ios.some(el => el > currentVersion) && result.currentOS == "iOS") {
+                    warningAlert('update available in app store', () => {
+                        window.location.href = 'http://apps.apple.com/us/app/masscourses/id1591755188'
+                    })
+                }
+            },
+            error: (jqXhr, textStatus, errorMessage) => {
+                console.log('ajax failed with object before sending: ' + JSON.stringify(jqXhr));
+                promoteInvalidLogin("Server Error, contact the administrator");
+                //TODO: DO ACTION FOR SERVER ERROR. OR CONTACT THE ADMINISTRATOR
+            }
+        });
+
+        $('#login_form').submit(
+            (e) => {
+                e.preventDefault();
+            });
+
+        function localVerifyLogin() {
+            //TODO: ASSUME VERIFICATION DONE
+            return true;
+        }
+
+        function promoteInvalidLogin(msg) {
+            $("#post_login_status").css("display", "block");
+            $("#login").addClass("text-danger");
+            $("#password").addClass("text-danger");
+            //console.log("promoteInvalidLogin called");
+            if (msg != undefined) {
+                //FOR VALIDATION OF INPUT IF CALLER SENDS A MSG.
+                $("#post_login_status").val(msg);
+
+            }
+
+        }
+
+        function removeInvalidAlert() {
+            $("#post_login_status").css("display", 'none');
+            $("#password").removeClass("text-danger");
+            $("#login").removeClass("text-danger");
+
+        }
+        // FOR RESETING ALERT OF INVALID USERNAME OR PW
+        $("#login").keyup(() => {
+            removeInvalidAlert();
+        });
+        $("#password").keyup(() => {
+            removeInvalidAlert();
+        });
+
+
+
+        function onLogin() {
+
+            if (!localVerifyLogin()) {
+                promoteInvalidLogin();
+                return;
+            }
+
+            var dataToSend = [{
+                username: $('#login').val(),
+                password: $('#password').val(),
+                msg: "okaty"
+            }];
+
+            //console.log("data prepared to authenticate: " + JSON.stringify(dataToSend));
+
+            $.ajax({
+                url: '../mobile-auth',
+                type: 'POST',
+                data: JSON.stringify(dataToSend),
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                success: (recievedData) => {
+                    //console.log('ajax success login respond, recieved data: ' + JSON.stringify(recievedData));
+
+                     if(recievedData.status == "AUTHENTICATED") {
+
+                        postSuccessLogin(recievedData);
+
+                    }else if (recievedData.status == "BLOCKED") {
+
+                        postFailedLogin(recievedData);
+
+                    } 
+                },
+                error: (jqXhr, textStatus, errorMessage) => {
+                    console.log('ajax failed with object before sending: ' + JSON.stringify(jqXhr));
+                    promoteInvalidLogin("Server Error, contact the administrator");
+                    //TODO: DO ACTION FOR SERVER ERROR. OR CONTACT THE ADMINISTRATOR
+                }
+            });
+
+        }
+
+        function setCookie(cname, cvalue, exdays) {
+            var d = new Date();
+            d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+            var expires = "expires=" + d.toUTCString();
+            document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+        }
+
+        function postSuccessLogin(recievedData) {
+            //console.log("post login successful recievedData: " + JSON.stringify(recievedData));
+            //window.location.href = "/home?token=" + recievedData.token; //TODO: 
+
+            function fillRedirectHiddenForm(userData) {
+                try {
+                    $("#hidden_login_text_token").val(userData.token);
+                    $("#hidden_login_text_username").val(userData.username);
+                    $("#hidden_login_text_email").val(userData.email);
+                } catch (err) {
+                    //NOTICE: HERE THE SERVER DIDN'T REPLY CORRECTLY AFTER AUTHENTICATION SUCCESS.
+                    //TODO: DISPLAY AN ABSTRACT SERVER ERROR.
+                    console.log("FAILED: fill redirect hidden form while filling the hidden form error: " + err);
+                }
+            }
+
+            function cacheToken(userData) {
+                // TODO: IF THIS APPROCH IS ACCEPTED, CACHE THE TOKEN & USERNAME/EMAIL
+                setCookie("username", userData.username, 5);
+                setCookie("token", userData.token, 0.1);
+            }
+
+            function submitHiddenForm(userData) {
+                // TODO; ASSUMING THERE WILL BE ANOTHER ACTION AFTER CACHING TOKEN.
+                /*console.log(
+                    "post success login: submit hidden form called and was supposed to redirect to home page"
+                );*/
+
+                $("#hidden_redirect_form").submit();
+            }
+
+            fillRedirectHiddenForm(recievedData.userData);
+            cacheToken(recievedData.userData);
+            submitHiddenForm(recievedData);
+
+        }
+
+        function postFailedLogin(recievedData) {
+            console.log(recievedData)
+            promoteInvalidLogin(recievedData.reason);
+        }
+
+
+
+
+
+         // login.html on erp app.
+    </script>
+</body>
+
+</html>

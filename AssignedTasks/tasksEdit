@@ -1,0 +1,14 @@
+Task Edit Frontend
+Edit task by showing previous new task form with previous task data without subtasks card
+
+call function post with arguments:
+	identifier from constants.js file (IDENTIFIERS.TASKS.EDIT_TASK), 
+	taskDataObject,
+	& success & failed callbacks
+success callback will call notifyResult then close edit form.
+failed will call notifyResult with messege = data.userMsg then close form
+
+post (IDENTIFIERS.TASKS.EDIT_TASK, taskData, success(){}, failed(data){});
+
+in master branch: "public/constants.js" you will find the identifier & steps for this post call
+

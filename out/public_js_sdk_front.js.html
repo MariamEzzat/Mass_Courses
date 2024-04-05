@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/js/sdk/front.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/js/sdk/front.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+ this script contains the implementation of get &amp; post function 
+ get(IDENTIFIER, dataObj, successCallback, failedCallback)
+	role: 
+		provide get and post functions 
+		do required processing on the data like (validation, formatting, ..)
+		pass the request to the server
+		respond according to the status respond (success, failed)
+
+	functions:
+		external: get, post
+		internal: editTaskSDK
+		requestBackEnd:
+			recieves every service request the call on respond the success or failed sent for each service request
+			after all services callback called it calls an optional finalCallback function
+
+*/
+let functionMapper = new Map([
+
+    [IDENTIFIERS.TASKS.EDIT_TASK, editTaskSDK],
+
+    [IDENTIFIERS.TASKS.NEW_TASK_PRE_DATA, taskPreData],
+
+    [IDENTIFIERS.TASKS.FILTER, getFilteredTasks],
+
+    [IDENTIFIERS.TASKS.TASK, getTaskFullData], // requires: data: {taskID: ""}
+
+    //[ IDENTIFIERS.USERS.BASIC, getBasicUsers ], // route: /public/js/services/users/users.js
+
+    [IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.FILTER, getFilteredLogsRecords],
+
+    [IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.ACCESSIBILITY, canAccessTasksLogsRecords],
+
+    [IDENTIFIERS.TASKS.BASIC, getTasksBasicList], // servers list of tasks {_id, taskName}
+
+    [IDENTIFIERS.TASKS.ACCESS, canAccessTask],
+
+    [IDENTIFIERS.PROJECTS.NEW_PROJECT, newProjectSDK],
+
+    [IDENTIFIERS.TASKS.SUB_TASKS.COMMENTS, getCommentsList], // requires: taskID &amp; subtaskID
+
+    [IDENTIFIERS.TASKS.SUB_TASKS.NEW_COMMENT, submitNewComment], // requires: taskID, subtaskID, comment
+
+    [IDENTIFIERS.TASKS.STATES.STATES, getTasksStatesPreData], // gives: [{_id, state},..]
+
+    [IDENTIFIERS.TASKS.STATES.NEW_STATE, taskNewState], // requires: {stateID, taskID, notes}
+
+    [IDENTIFIERS.TASKS.STATES.TASK_STATES, getTaskStates], // requires: {taskID}, gives: [{_id, by, time, notes}]
+
+
+])
+
+
+
+
+function get(IDENTIFIER, dataObj, success, fail) {
+    functionMapper.get(IDENTIFIER)(dataObj, success, fail);
+}
+
+function post(IDENTIFIER, dataObj, success, fail) {
+    functionMapper.get(IDENTIFIER)(dataObj, success, fail);
+}
+
+
+
+
+/* 
+require servicesObjects: [{
+			serviceID,
+			data,
+			successCallback(recievedEnvelope),
+			failedCallback(recievedEnvelop)
+		},..],
+		finalCallback: // called after calling callbacks inside servicesObjects
+
+*/
+function requestBackEnd(servicesObjects, finalCallback) {
+    let servicesArray = [];
+    let servicesMap = new Map();
+
+    for (let serviceObject of servicesObjects) {
+        servicesArray.push({
+            serviceID: serviceObject.serviceID,
+            data: serviceObject.data
+        });
+        servicesMap.set(serviceObject.serviceID, serviceObject);
+    }
+
+
+    function postServicesRespond(recievedEnvelope) {
+        for (let service of recievedEnvelope.servicesResponds) {
+            let serviceObject = servicesMap.get(service.serviceID);
+            if (service.status == "SUCCESS") {
+                serviceObject.successCallback(service.data);
+            } else {
+                serviceObject.failedCallback(service.data);
+            }
+        }
+        if (finalCallback != undefined) {
+            finalCallback();
+        }
+    }
+
+
+
+    servicesRequests(servicesArray, postServicesRespond);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+// TODO: move this function to tasks.js or tasks/tasksPost.js
+function editTaskSDK(data, success, fail) {
+    /*
+    TODO: validation > create object
+    */
+    let errMsg = "Missing properties in taskData";
+    let userMsg = "Error, missing properties, contact administrator";
+    let taskData = data.taskData;
+
+    function validEditTaskData(taskData) {
+        let missingsTemp = missingProperties(["description", "time", "responsibilities", "audition"], taskData);
+        let missings = [];
+        if (missingsTemp !== false) missings.push(missingsTemp);
+        let validationFail = false;
+        if (missingsTemp === false) {
+            //then check for the nested keys
+            if (!data.hasOwnProperty("taskID")) {
+                validationFail = true;
+                missings.push("taskID")
+            };
+            let descriptionMissings = missingProperties(
+                ["name", "notes", "category", "priority", "project"],
+                taskData.description);
+            if (descriptionMissings !== false) {
+                validationFail = true;
+                missings.push(descriptionMissings);
+            }
+            let timeMissings = missingProperties(
+                ["deadline", "estimation"], taskData.time);
+            if (timeMissings === false) {
+                let estimationMissings = missingProperties(
+                    ["amount", "start", "end"], taskData.time.estimation);
+                if (estimationMissings !== false) {
+                    validationFail = true;
+                    missings.push(estimationMissings);
+                }
+            } else {
+                validationFail = true;
+                missings.push(timeMissings);
+            }
+            let responsibilitiesMissings = missingProperties(
+                ["from", "to", "participants", "observers"], taskData.responsibilities);
+            if (responsibilitiesMissings === false) {
+                if (Array.isArray(taskData.responsibilities.participants))
+                    if (taskData.responsibilities.participants.length == 0) {
+                        validationFail = true;
+                        missings.push(participants)
+                    } else {
+                        validationFail = true;
+                        missings.push("participants")
+                    }
+                if (Array.isArray(taskData.responsibilities.observers))
+                    if (taskData.responsibilities.observers.length == 0) {
+                        validationFail = true;
+                        missings.push("observers")
+                    } else {
+                        validationFail = true;
+                        missings.push("observers")
+                    }
+            } else {
+                validationFail = true;
+                missings.push(responsibilitiesMissings);
+            }
+            let auditionMissings = missingProperties(["by", "note"], taskData.audition);
+            if (auditionMissings !== false) {
+                validationFail = true;
+                missings.push("audition")
+            }
+        } else {
+            validationFail = true;
+        }
+        return validationFail ? missings : true;
+    }
+
+    let validationResult = true; //validEditTaskData(taskData);
+    if (validationResult !== true) {
+        fail({
+            status: LABELS.INVALID_INPUTS.INVALID_INPUTS_STATUS,
+            errMsg: errMsg + ": " + JSON.stringify(validationResult),
+            userMsg: "Error, missing properties, contact administrator"
+        });
+        return;
+    }
+
+    if (!isValidNewTaskInputsEdit(taskData)) {
+        fail({
+            status: LABELS.INVALID_INPUTS,
+            errMsg: errMsg + ": " + JSON.stringify("unknown"),
+            userMsg: "Error, missing properties, contact administrator"
+        });
+        return;
+    }
+
+    function isValidNewTaskInputsEdit(taskData) {
+        let errMsg = "";
+        if (taskData.name == "") errMsg += "Name is required&lt;br/>";
+        if (taskData.category == "") errMsg += "Category is required&lt;br/>";
+        if (taskData.project == "") errMsg += "Project is required&lt;br/>";
+        if (taskData.time.deadline == "") errMsg += "Deadline is required&lt;br/>";
+        if (taskData.time.estimation.amount == "") errMsg += "Estimated hours is required&lt;br/>";
+        if (taskData.time.estimation.start == "") errMsg += "Estimated start date is required&lt;br/>";
+        if (taskData.time.estimation.end == "") errMsg += "Estimated end date is required&lt;br/>";
+        if (taskData.responsibilities.assignedFrom == "") errMsg += "Assigned from is required&lt;br/>";
+        if (taskData.responsibilities.assignedTo == "") errMsg += "Assigned to is required&lt;br/>";
+
+        let participants = taskData.responsibilities.participants;
+        if (!Array.isArray(participants)) errMsg += "Participants is required&lt;br/>";
+        else if (Array.isArray(participants)) {
+            if (participants.length == 0)
+                errMsg += "Participants is required&lt;br/>";
+        }
+
+        let observers = taskData.responsibilities.observers;
+        if (!Array.isArray(observers)) errMsg += "Observers is required&lt;br/>";
+        else if (Array.isArray(observers)) {
+            if (observers.length == 0)
+                errMsg += "Observers is required&lt;br/>";
+        }
+
+
+        if (errMsg != "") {
+            notifyResult(false, errMsg);
+            return false;
+        }
+        return true;
+    }
+
+
+
+
+    let servicesObjects = [{
+        serviceID: IDENTIFIERS.TASKS.EDIT_TASK,
+        data: data,
+        successCallback: (result) => {
+            success();
+        },
+        failedCallback: (errData) => {
+            fail({
+                status: LABELS.SERVER_RESPOND.ERROR,
+                errMsg: "Server msg: " + JSON.stringify(errData),
+                userMsg: "Error while updating, contact administrator"
+            });
+        }
+    }];
+
+    requestBackEnd(servicesObjects);
+
+}
+
+
+
+
+
+//TODO: use &amp;/or implement users cache disk storage!!!!!!!!!!!!
+//		check for validity of microservicing in sdk ex(to get users from taskPreData call get)
+function taskPreData(data, success, fail) {
+    // TODO: IMPLEMENT TASK PRE DATA
+
+    let users;
+    let preData;
+    let error = false;
+    let errData = [];
+
+    let servicesObjects = [{
+            serviceID: IDENTIFIERS.TASKS.NEW_TASK_PRE_DATA,
+            data: {},
+            successCallback: (result) => {
+                preData = result;
+            },
+            failedCallback: (err) => {
+                error = true;
+                errData.push(err);
+            }
+        },
+        {
+            serviceID: IDENTIFIERS.USERS.BASIC,
+            data: {},
+            successCallback: (result) => { //console.log ("users: " + JSON.stringify(result));
+                users = result;
+            },
+            failedCallback: (err) => {
+                error = true;
+                errData.push(err);
+            }
+        }
+    ]
+
+    function postAllResponds() {
+        if (error) {
+            fail({
+                errMsg: "Server respond error: " + JSON.stringify(errData) + ", " + JSON.stringify(errData),
+                userMsg: "Error preData, contact administrator"
+            });
+            return;
+        }
+
+        success({
+            users: users,
+            projects: preData.projects,
+            categories: preData.categories,
+            priorities: preData.priorities,
+            locations: preData.locations
+        });
+    }
+
+    requestBackEnd(servicesObjects, postAllResponds);
+}
+
+
+
+
+// data: users, taskData
+// from users: require users list ownProperty
+// from tasks: require taskData object ownProperty
+function getTaskFullData(data, success, fail) {
+    //TODO: GET USERS > GET TASK DATA > TODO(if task data on the server changed schema then get them stepply)
+
+    //validation:
+    if (!data.hasOwnProperty("taskID")) {
+        fail({
+            status: IDENTIFIERS.LABELS.INVALID_INPUTS.INVALID_INPUTS_TASK_FULL_DATA,
+            errMsg: "Invalid Inputs: taskID missing",
+            userMsg: "Error, contact administrator"
+        });
+    }
+
+    let error = false;
+    let errData = [];
+
+    let usersList;
+    let taskData;
+
+
+    let servicesObjects = [{
+            serviceID: IDENTIFIERS.TASKS.TASK,
+            data: { taskID: String(data.taskID) },
+            successCallback: (taskDataRecieved) => {
+                taskData = taskDataRecieved;
+            },
+            failedCallback: (err) => {
+                error = true;
+                errData.push(err);
+            }
+        },
+        {
+            serviceID: IDENTIFIERS.USERS.BASIC,
+            data: {},
+            successCallback: (users) => {
+                usersList = users;
+            },
+            failedCallback: (err) => {
+                error = true;
+                errData.push(err);
+            }
+        }
+    ];
+
+    function postAllResponds() {
+        if (error) {
+            fail({
+                errMsg: "Error: retrieving taskData &amp;/or usersList: " + JSON.stringify(errData),
+                userMsg: LABELS.USER_MESSAGE.TASKS.TASK_DATA
+            });
+            return;
+        }
+        // no error:
+        success({
+
+            users: usersList,
+            taskData: taskData
+        });
+    }
+
+    requestBackEnd(servicesObjects, postAllResponds);
+
+}
+
+
+/*
+
+filterObject: {
+		pageNumber:,
+		pageSize:,
+		query: { // don't include properties not needed.
+			to: "userID", // assigned to
+			in: "userID", // included
+			project: "projectNameString",
+			overdue: 1/0 // 1 for tasks that's deadline is past today
+			estimation: {
+				future: 1/0,
+				overdue: 1/0,
+				// include potential date range or date picking.
+			}
+		}
+
+*/
+
+
+function getFilteredTasks(data, success, fail) {
+
+    //TODO: ******* IMPLEMENT VALIDATION **** AFTER DESINGING REQUIREMENTS FOR FILTER  
+    // AFTER FLATLINE *******************************************************************
+    // NOW ONLY THE REQUEST BACKEND.
+
+    if (!data.hasOwnProperty("query")) {
+        data.query = {};
+    }
+
+    let error = false;
+    let errData = [];
+
+    let tasksList = [];
+    let usersList = [];
+
+    let servicesObjects = [{
+            serviceID: IDENTIFIERS.TASKS.FILTER,
+            data: data,
+            successCallback: (filteredTasksList) => {
+                tasksList = filteredTasksList;
+            },
+            failedCallback: (err) => {
+                error = true;
+                console.log("post tasksList err: " + JSON.stringify(err));
+                errData.push(err);
+            }
+        },
+        {
+            serviceID: IDENTIFIERS.USERS.BASIC,
+            data: {},
+            successCallback: (users) => {
+                usersList = users;
+            },
+            failedCallback: (err) => {
+                error = true;
+                console.log("post usersList err: " + JSON.stringify(err));
+                errData.push(err);
+            }
+        }
+    ];
+
+    function postAllresponds() {
+        //TODO: add progress or state calculation if required without 
+
+        if (error) {
+            console.log("Error in getFilteredTasks: " + JSON.stringify(err));
+            fail({
+                errMsg: "Error: retrieving tasksList &amp;/or usersList: " + JSON.stringify(errData),
+                userMsg: LABELS.SERVER.SERVER_RESPOND.ERROR
+            });
+            return;
+        }
+
+        success({
+            tasks: tasksList,
+            users: usersList
+        });
+    }
+    requestBackEnd(servicesObjects, postAllresponds);
+
+}
+
+
+/* IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.FILTER
+ *	get filtered tasks logs record.
+ *	
+ */
+function getFilteredLogsRecords(data, success, fail) {
+    let servicesObjects = [{
+        serviceID: IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.FILTER,
+        data: data,
+        successCallback: (records) => {
+            success(records);
+        },
+        failedCallback: (err) => {
+            console.log("filtered records: err: " + JSON.stringify(err));
+            fail(err);
+        }
+    }]
+    requestBackEnd(servicesObjects);
+
+}
+
+
+/* IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.ACCESSIBILITY
+ *  returns object contains boolean, true if user can access taskslogsrecords
+ *	{hasAccess = true/false}
+ */
+function canAccessTasksLogsRecords(data, success, fail) {
+
+    // no validation.
+
+    let servicesObjects = [{
+        serviceID: IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.ACCESSIBILITY,
+        data: {},
+        successCallback: (accessibility) => {
+            success({
+                //TODO: defined hasAccess object after accissibility object definition.
+                accessibility
+            });
+        },
+        failedCallback: (err) => {
+            console.log("postrecords failedCallback err: " + JSON.stringify(err));
+            fail(err);
+        }
+    }]
+
+    requestBackEnd(servicesObjects);
+
+}
+
+
+
+
+
+function getTasksBasicList(data, success, fail) {
+
+    let servicesObjects = [{
+        serviceID: IDENTIFIERS.TASKS.BASIC,
+        data: {},
+        successCallback: (rawTasksBasicList) => { //{_id, taskData.description.name}
+            try {
+                let result = [];
+                for (let task of rawTasksBasicList) {
+                    result.push({
+                        _id: task._id,
+                        taskName: task.taskData.description.name
+                    });
+                }
+                success(result);
+            } catch (err) {
+                con
+                this.failedCallback({ errMsg: err.message });
+            }
+        },
+        failedCallback: (err) => {
+            fail({
+                errMsg: err,
+                userMsg: LABELS.SDK.INTERNAL_ERROR
+            });
+        }
+    }]
+
+    requestBackEnd(servicesObjects);
+}
+
+
+/*
+	requires {taskID:"task id string"}
+	returns {hasAccess:true/false} false for not found
+*/
+function canAccessTask(data, success, fail) {
+    if (!data.hasOwnProperty("taskID")) {
+        console.log("Can access task error, taskID not found");
+        return;
+    }
+    let servicesObjects = [{
+        serviceID: IDENTIFIERS.TASKS.ACCESS,
+        data: { taskID: data.taskID }, // sdk max fields validation
+        successCallback: (result) => { // will be {hasAccess: true/false}
+            success(result);
+        },
+        failedCallback: (err) => {
+            console.log("Error failedCallback in canAccessTask: " + JSON.stringify(err));
+            fail({
+                errMsg: err,
+                userMsg: LABELS.SDK.INTERNAL_ERROR
+            });
+        }
+    }];
+
+    requestBackEnd(servicesObjects);
+}
+
+
+/**
+ *	getCommentsList - sdk get mapped funtion
+ *	@param {Object} data - {subtaskID}
+ *	@param {function} success - callback param: data: {comments: [{_ic, by, val}]}
+ *	@param {function} fail - NAN
+ */
+function getCommentsList(data, success, fail) {
+    if (!data.hasOwnProperty("subtaskID")) {
+        console.log("getCommentsList: subtaskID not found, data: " + JSON.stringify(data));
+        return;
+    }
+
+    function processResult(result) {
+        if (result == null) {
+            success([]);
+            return;
+        }
+        let formattedComments = [];
+        //TODO: sort use arr.sort(compareFunction {return 1 if a>b -1 if a&lt;b 0 =})
+
+        // add time field to each comment by converting mongoID to time.
+        for (let i = 0; i &lt; result.comments.length; i++) {
+            result.comments[i]["time"] = mongoIDToISOTime(result.comments[i]["_id"]);
+        }
+
+        success(result.comments);
+    }
+
+    let servicesObjects = [{
+        serviceID: IDENTIFIERS.TASKS.SUB_TASKS.COMMENTS,
+        data: { subtaskID: data.subtaskID, taskID: data.taskID },
+        successCallback: (result) => {
+            processResult(result);
+        },
+        failedCallback: (err) => {
+            fail({
+                errMsg: err,
+                userMsg: LABELS.SERVER.SERVER_RESPOND.ERROR
+            });
+        }
+    }]
+
+    requestBackEnd(servicesObjects);
+}
+
+/**
+ *	submitNewComment - sdk get mapped funtion
+ *	@param {Object} data - {taskID, subtaskID, comment}
+ *	@param {function} success - callback, no parameters sent.
+ *	@param {function} fail - NAN
+ */
+function submitNewComment(data, success, fail) {
+
+    let missings = missingProperties(["taskID", "subtaskID", "comment"], data);
+
+    if (missings != false) {
+        fail({
+            errMsg: "Missing fields: " + JSON.stringify(missings),
+            userMsg: LABELS.FRONT_END.INTERNAL_ERROR
+        });
+        return;
+    }
+
+    // just in case an unkown bug that adds more fields thats might overload transmission
+    let preparedData = {
+        taskID: data.taskID,
+        subtaskID: data.subtaskID,
+        comment: data.comment
+    }
+
+    let servicesObjects = [{
+        serviceID: IDENTIFIERS.TASKS.SUB_TASKS.NEW_COMMENT,
+        data: preparedData,
+        successCallback: (result) => {
+            success(result);
+        },
+        failedCallback: (err) => {
+            fail({
+                errMsg: err,
+                userMsg: LABELS.SERVER.SERVER_RESPOND.ERROR
+            });
+        }
+    }]
+
+    requestBackEnd(servicesObjects);
+}
+
+/**
+ * @summary tasks states list (predata)
+ * IDENTIFIERS.TASKS.STATES.STATES
+ * @param  {object} data - empty
+ * @param  {callback} success - gives: [{_id: "state id", state:"state name"}]
+ * @param  {callback} fail - gives: err reason string
+ * 
+ */
+function getTasksStatesPreData(data, success, fail) {
+
+    function proceedFormatData(result) {
+        let formattedStates = [];
+        for (let state of result) {
+            formattedStates.push({
+                _id: state._id,
+                state: state.val
+            });
+        }
+        success(formattedStates);
+    }
+
+    let servicesObject = [{
+        serviceID: IDENTIFIERS.TASKS.STATES.STATES,
+        data: {},
+        successCallback: (result) => {
+            proceedFormatData(result);
+        },
+        failedCallback: (err) => {
+            fail({
+                errMsg: err,
+                userMsg: LABELS.SERVER.SERVER_RESPOND.ERROR
+            })
+        }
+    }]
+
+    requestBackEnd(servicesObject);
+}
+
+/**
+ * @summary submitting new state for a task
+ * IDENTIFIERS.TASKS.STATES.NEW_STATE
+ * @param  {object} data - requires: {taskID, stateID}
+ * @param  {callback} success 
+ * @param  {callback} failed - gives: err reason string
+ */
+function taskNewState(data, success, fail) {
+
+    // validation
+    let missing = missingProperties(["taskID", "stateID"], data);
+    if (missing != false) {
+        fail({
+            errMsg: "taskNewState: missing properties: " + JSON.stringify(missing),
+            userMsg: LABELS.FRONT_END.INTERNAL_ERROR
+        });
+        return;
+    }
+    console.log(JSON.stringify(data));
+    if (data.stateID.length == 0) {
+        fail({
+            errMsg: "stateID length = 0, data: " + JSON.stringify(data),
+            userMsg: LABELS.FRONT_END.MISSING_INPUTS
+        });
+        return;
+    }
+
+    //preparing
+    let preparedData = {
+        taskID: data.taskID,
+        stateID: data.stateID
+    }
+    if (data.hasOwnProperty("notes")) {
+        preparedData.notes = data.notes;
+    }
+
+    // backend
+    let servicesObject = [{
+        serviceID: IDENTIFIERS.TASKS.STATES.NEW_STATE,
+        data: preparedData,
+        successCallback: (result) => {
+            success(result);
+        },
+        failedCallback: (err) => {
+            fail({
+                err: err,
+                userMsg: LABELS.SERVER.SERVER_RESPOND.ERROR
+            });
+        }
+    }];
+
+    requestBackEnd(servicesObject);
+
+}
+
+
+/**
+ * @summary retrieves specific task states logs
+ * IDENTIFIERS.TASKS.STATES.TASK_STATES
+ * gets from server: {_id, task, states:[{_id: "objectID contains time", by, state, notes}]}
+ * @param  {object} data - requires: {taskID}
+ * @param  {callback} success - gives: [{_id, by, time, notes},..]
+ * @param  {callback} failed
+ */
+function getTaskStates(data, success, fail) {
+
+    //validation
+    if (!data.hasOwnProperty("taskID")) {
+        fail({
+            err: "getTaskStates missing taskID",
+            userMsg: LABELS.FRONT_END.INTERNAL_ERROR
+        });
+    }
+
+    let preparedData = {
+        taskID: data.taskID // just in case front end pushes another unwanted data.
+    }
+
+    function preceedFormatData(result) {
+        if (!result.hasOwnProperty("states")) { // either error happened or this task doesn't contain states, success because major errors directed to failedCallbacks
+            success([]);
+            return;
+        }
+        let formattedStates = [];
+        for (let state of result.states) {
+            formattedStates.push({
+                _id: state.state,
+                by: state.by,
+                notes: state.notes,
+                time: mongoIDToISOTime(state._id)
+            });
+        }
+        success(formattedStates);
+    }
+
+
+    //backend
+    let servicesObjects = [{
+        serviceID: IDENTIFIERS.TASKS.STATES.TASK_STATES,
+        data: preparedData,
+        successCallback: (result) => {
+
+            preceedFormatData(result);
+        },
+        failedCallback: (err) => {
+            fail({
+                err: err,
+                userMsg: LABELS.SERVER.SERVER_RESPOND.ERROR
+            });
+        }
+    }]
+
+    requestBackEnd(servicesObjects);
+
+}
+
+
+
+
+
+
+
+
+/*function schemaUpdate() {
+    let servicesObjects = [{
+        serviceID: "00T00",
+        data: {},
+        successCallback: (result) => {
+            console.log(JSON.stringify(result));
+        },
+        failedCallback: (err) => {
+            console.log(JSON.stringify(err));
+        }
+    }];
+    requestBackEnd(servicesObjects);
+}
+*/
+
+/*
+	
+
+
+	Documentation: 
+		each server a frontEnd will call get &amp; post by passing it's identifier
+		identifiers are mapped to functions responsible,
+
+		requestBackEnd (servicesObjects, postAllResponds);
+			will send services request the server, then call each corresponding callback (success/fail) for 
+			each service, finally call postAllResponds
+
+			servicesObjects: {
+				serviceID,
+				data,
+				successCallback,
+				failedCallback
+			}
+		
+
+
+
+*/</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

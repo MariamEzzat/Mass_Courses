@@ -1,0 +1,110 @@
+<div class="d-flex justify-content-end pt-3">
+    <button class="btn btn-danger text-capitalize rounded-circle" id="newStudent_close">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+<input type="text" hidden id="edit_studentID" name="studentID">
+<div class="row" id="newStudent_form">
+
+    <div class="col-md-8 rounded shadow card p-2 mx-auto">
+        <div class="d-flex justify-content-center py-3 mx-auto">
+            <h3 class="dark-green text-uppercase font-weight-bold">❖ create new student ❖</h3>
+        </div>
+        <div class="p-2 row">
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">ID</label>
+                <input type="text" class="form-control rounded-pill" id="newStudent_input_ID" name="mID">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">Name</label>
+                <input type="text" class="form-control rounded-pill" id="newStudent_input_name" name="name">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">e-mail</label>
+                <input type="email" class="form-control rounded-pill" id="newStudent_input_email" name="email">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">primary mobile</label>
+                <input type="text" class="form-control rounded-pill" id="newStudent_input_primaryMobile" name="primaryMobile">
+                <label class="text-capitalize pl-2" for="newStudent_checkBox_primaryMobile">
+                    <input type="checkbox" class="custom-checkbox" id="newStudent_checkBox_primaryMobile" name="primaryWhatsapp"> whatsapp
+                </label>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">secondary mobile</label>
+                <input type="text" class="form-control rounded-pill" id="newStudent_input_secondaryMobile" name="secondaryMobile">
+                <label class="text-capitalize pl-2" for="newStudent_checkBox_secondaryMobile">
+                    <input type="checkbox" class="custom-checkbox" id="newStudent_checkBox_secondaryMobile" name="secondaryWhatsapp"> whatsapp
+                </label>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">password</label>
+                <input type="password" class="form-control rounded-pill" id="newStudent_input_password" name="password">
+                <div class="alert alert-danger d-none"></div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">university</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select University" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newStudent_input_university" name="university" value="">
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">faculty</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select faculty" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newStudent_input_faculty" name="faculty" value="">
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">department</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select Department" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newStudent_input_department" name="department" value="">
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">section</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select Section" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newStudent_input_section" name="section" value="">
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">year</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select Year" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newStudent_input_year" name="year" value="">
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">term</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select Term" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newStudent_input_term" name="term" value="">
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">group</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" multiple title="Select Group" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newStudent_select_group" name="group" value="">
+
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-top pt-2 mt-1">
+            <div class="d-flex justify-content-center justify-content-md-end">
+                <button type="submit" class="btn rgba-darkBlue text-white rounded px-5 py-2" id="newStudent_buttonSubmit">Create</button>
+                <button type="submit" class="btn rgba-darkBlue text-white d-none rounded px-5 py-2" id="newStudent_buttonEdit">Edit</button>
+            </div>
+        </div>
+    </div>
+</div>

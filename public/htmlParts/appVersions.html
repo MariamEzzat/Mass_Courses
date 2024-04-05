@@ -1,0 +1,88 @@
+<div class="d-flex justify-content-end pt-3">
+    <button class="btn btn-danger text-capitalize rounded-circle" id="appVersions_close">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+<div class="row">
+    <div class="col-md-10 rounded shadow card mx-auto">
+        <div class="d-flex justify-content-center py-3 mx-auto">
+            <h5 class="dark-green text-uppercase font-weight-bold">❖ add version ❖</h5>
+        </div>
+        <div class="p-2 row border-bottom mb-1" id="appVersions_addVersion">
+            <div class="form-group col-lg-2">
+                <label class="text-capitalize pl-2" id="">version no.</label>
+                <input type="text" class="form-control rounded-pill" id="appVersions_version">
+            </div>
+            <div class="form-group col-lg-2">
+                <label class="text-capitalize pl-2" id="">OS</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" multiple data-header="Select OS"
+                        data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" id="appVersions_os" value="">
+                        <option value="ios">iPhone OS</option>
+                        <option value="android">Android OS</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-2 d-flex justify-content-center justify-content-lg-end">
+                <button type="submit" class="btn rgba-darkBlue text-white rounded px-4 py-2 my-auto" id="appVersions_versionSubmit">add</button>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-center py-3 mx-auto">
+            <h5 class="dark-green text-uppercase font-weight-bold">❖ add valid version/s ❖</h5>
+        </div>
+        <div class="p-2 row border-bottom mb-1" id="appVersions_addValidVersion">
+            <div class="form-group col-lg-3">
+                <label class="text-capitalize pl-2" id="">android</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" multiple data-header="Select Version" data-size="3" data-width="75%"
+                        data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill"
+                        data-live-search="true " id="appVersions_validAndroid" value="">
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-lg-3">
+                <label class="text-capitalize pl-2" id="">IOS</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" multiple titdata-headerle="Select Version" data-size="3" data-width="75%"
+                        data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill"
+                        data-live-search="true " id="appVersions_validIOS" value="">
+                    </select>
+                </div>
+            </div>
+            <div class="col-2 d-flex justify-content-center justify-content-md-end">
+                <button type="submit" class="btn rgba-darkBlue text-white rounded px-4 py-2 my-auto" id="appVersions_validVersionSubmit">add</button>
+            </div>
+        </div>
+
+        <h6 class="darkBlue text-capitalize dropdown-toggle" data-toggle="collapse" data-target="#appVersions_viewVersions" aria-expanded="false" aria-controls="appVersions_viewVersions">❖ versions</h6>
+        <div id="appVersions_viewVersions" class="collapse p-1">
+            <table id="appVersions_Versionstable" class="table table-bordered table-sm bg-white" style="line-height: 0.9;">
+                <thead class="text-capitalize font-weight-bold rgba-darkBlue text-white text-center">
+                    <th style="width: 3%;">#</th>
+                    <th style="width: 10%;">type</th>
+                    <th style="width: 10%;">number</th>
+                    <th style="width: 3%;"></th>
+                </thead>
+                <tbody class="text-capitalize text-center">
+    
+                </tbody>
+            </table>
+        </div>
+
+        <h6 class="darkBlue text-capitalize dropdown-toggle mt-3 border-top pt-2" data-toggle="collapse" data-target="#appVersions_viewLastValidVersions" aria-expanded="false" aria-controls="appVersions_viewLastValidVersions">❖ valid versions</h6>
+        <div id="appVersions_viewLastValidVersions" class="collapse p-1 show">
+            <table id="appVersions_LastValidVersionstable" class="table table-bordered table-sm bg-white" style="line-height: 0.9;">
+                <thead class="text-capitalize font-weight-bold rgba-darkBlue text-white text-center">
+                    <th style="width: 3%;">#</th>
+                    <th style="width: 10%;">type</th>
+                    <th style="width: 10%;">number</th>
+                    <th style="width: 3%;"></th>
+                </thead>
+                <tbody class="text-capitalize text-center">
+    
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

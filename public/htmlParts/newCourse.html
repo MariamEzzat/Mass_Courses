@@ -1,0 +1,132 @@
+<div class="d-flex justify-content-end pt-3">
+    <button class="btn btn-danger text-capitalize rounded-circle" id="newCourse_close">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+<div class="row" id="newCourse_form">
+    <input type="text" hidden id="newCourseForm_hidden_taskID">
+    <div class="col-md-8 rounded shadow card p-2 mx-auto">
+        <div class="d-flex justify-content-center py-3 mx-auto">
+            <h3 class="dark-green text-uppercase font-weight-bold">❖ create new Course ❖</h3>
+        </div>
+        <div class="p-2 row">
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_name">Name</label>
+                <input type="text" class="form-control rounded-pill" id="newCourse_input_name" name="name">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_university">university</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select University" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newCourse_input_university" value="" name="university">
+                        <option class="text-capitalize" value="alexandria">alexandria</option>
+                        <option class="text-capitalize" value="tanta">tanta</option>
+                        <option class="text-capitalize" value="cairo">cairo</option>
+                        <option class="text-capitalize" value="ain shams">ain shams</option>
+                        <option class="text-capitalize" value="sohag">sohag</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_faculty">faculty</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select faculty" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newCourse_input_faculty" value="" name="faculty">
+                        <option class="text-capitalize" value="law">law</option>
+                        <option class="text-capitalize" value="commerce">commerce</option>
+                        <option class="text-capitalize" value="medicine">medicine</option>
+                        <option class="text-capitalize" value="art">art</option>
+                        <option class="text-capitalize" value="computer science">computer science</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_department">department</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select department" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newCourse_input_department" value="" name="department">
+                        <option class="text-capitalize" value="department 1">department 1</option>
+                        <option class="text-capitalize" value="department 2">department 2</option>
+                        <option class="text-capitalize" value="department 3">department 3</option>
+                        <option class="text-capitalize" value="department 4">department 4</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_section">section</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select section" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newCourse_input_section" value="" name="section">
+                        <option class="text-capitalize" value="section 1">section 1</option>
+                        <option class="text-capitalize" value="section 2">section 2</option>
+                        <option class="text-capitalize" value="section 3">section 3</option>
+                        <option class="text-capitalize" value="section 4">section 4</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_year">year</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select year" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newCourse_input_year" value="" name="year">
+                        <option class="text-capitalize" value="first year">first year</option>
+                        <option class="text-capitalize" value="second year">second year</option>
+                        <option class="text-capitalize" value="third year">third year</option>
+                        <option class="text-capitalize" value="fourth year">fourth year</option>
+                        <option class="text-capitalize" value="fifth year">fifth year</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_term">term</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select term" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newCourse_input_term" value="" name="term">
+                        <option class="text-capitalize" value="first term">first term</option>
+                        <option class="text-capitalize" value="winter course">winter course</option>
+                        <option class="text-capitalize" value="second term">second term</option>
+                        <option class="text-capitalize" value="summer course">summer course</option>
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_subject">subject</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select subject" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newCourse_input_subject" value="" name="subject">
+                        <option class="text-capitalize" value="communication networks">communication networks</option>
+                        <option class="text-capitalize" value="data structure">data structure</option>
+                        <option class="text-capitalize" value="data mining">data mining</option>
+                        <option class="text-capitalize" value="advanced programming">advanced programming</option>
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newCourse_label_instructor">instructor</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" title="Select instructor" multiple data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newCourse_input_instructor" value="" name="instructor">
+                        <option class="text-capitalize" value="ahmed">ahmed</option>
+                        <option class="text-capitalize" value="modahmed">modahmed</option>
+                        <option class="text-capitalize" value="mahmoud">mahmoud</option>
+                        <option class="text-capitalize" value="nader">nader</option>
+
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-12">
+                <label class="text-capitalize pl-2" id="newCourse_label_subject">description</label>
+                <textarea rows="4" class="form-control rounded-pill px-5 py-3" id="newCourse_input_description" style="overflow:hidden"></textarea>
+            </div>
+            <div class="form-group col-md-3">
+                <label class="text-capitalize pl-2" id="newCourse_label_subject">course image</label>
+                <input type="file" id="newCourseFiles" class="form-control rounded-pill">
+                <output></output>
+                <div class="progress mt-2 d-none">
+                    <div class="progress-bar progress-bar-striped" id="newCourseProgressImage" role="progressbar" style="width: 0%" value="10%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-top pt-2 mt-1">
+            <div class="d-flex justify-content-center justify-content-md-end">
+                <button type="submit" class="btn rgba-darkBlue text-white rounded px-5 py-2" id="newCourse_buttonSubmit">Create</button>
+                <button type="submit" class="btn rgba-darkBlue text-white d-none rounded px-5 py-2" id="newCourse_buttonEdit">edit</button>
+            </div>
+        </div>
+    </div>
+</div>

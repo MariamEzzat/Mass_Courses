@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/js/frontEnd/tasks/subtasksInView.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/js/frontEnd/tasks/subtasksInView.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>let taskList_specificTask_addNewSubTask_submit = document.querySelector('#taskList_specificTask_addNewSubTask_submit');
+let hhData;
+let hh;
+/**
+ * when click add will get input's subttask data and send it to addSubTask function, close modal subtask 
+ * data - get fields have values entered by user
+ * subTask - represent object that will be sent to server to add subtask
+ * idTask - represent viewed task's ID
+ * addSubTask() - function will receive object of added subtask
+ * @event submit - add subtask
+ */
+taskList_specificTask_addNewSubTask_submit.onclick = function() {
+    let data = getIDsAndValuesFormAnyForm('taskList_specificTask_addNewSubTask');
+    let idTask = specificTaskModal.querySelector('#taskList_specificTask_taskID').value
+    let subTask = {
+        taskID: idTask,
+        name: data.subtasks_name.trim(),
+        hours: data.subtasks_hours,
+        type: data.subtasks_type,
+        notes: data.subtasks_notes
+    };
+
+    document.querySelector('#taskList_specificTask_addNewSubTask').querySelectorAll('input, textarea').forEach(inputs => {
+        inputs.value = '';
+    });
+    $("#taskList_specificTask #subtaskTable #subtasks_type").selectpicker('val', '');
+
+    addSubTask(subTask);
+};
+
+/**
+ * fill subtasks array(after calculate each subtask's log hours and percentage) in subtasks list in task view,
+ *then activate click on subtask to open collapse modal to view subtask details/delete it/add log for this subtask, activate deleteSbtask function
+ * @function fillSubTasksList
+ *@param {Array} subTasks - array of subtasks for specific task viewed by user
+ *@param {object} taskData - object of specific task viewed by user
+ */
+function fillSubTasksList(subTasks, taskData, taskID) {
+    hhData = taskData
+    let subtaskTable = document.querySelector(`#accordionSubtasks`)
+
+    let subtaskTableRow = ``;
+    let subTaskCalculated = calculateSubtasksState(subTasks, taskData.taskData.logs);
+    logProgressForSpecificSubTask = calculateSubtasksState(subTasks, taskData.taskData.logs);
+    for (let i = 0; i &lt; subTaskCalculated.length; i++) {
+        let logsForEachSubTask = taskData.taskData.logs.filter(lo => {
+            return subTaskCalculated[i].name == lo.subTask
+        })
+
+
+        subtaskTableRow += `
+                &lt;div class="col-md-4 py-2">
+                    &lt;div class="text-center  text-capitalize py-0 mb-0" data-toggle="collapse" data-target="#subtask_${i}" aria-expanded="true" aria-controls="${subTaskCalculated[i].name.trim()}">
+                        &lt;big class=""> ${subTaskCalculated[i].name.trim()} &lt;/big>
+                        &lt;div class="progress w-100 rgba-grey-light">
+                            &lt;div class="progress-bar progress-bar-animated blue-gradient text-white" 
+                                role="progressbar" aria-valuenow="${subTaskCalculated[i].percentage}" aria-valuemin="0" aria-valuemax="100" 
+                                style="width: ${subTaskCalculated[i].percentage}%">
+                                ${subTaskCalculated[i].type}, ${subTaskCalculated[i].logHours}Hrs, ${subTaskCalculated[i].percentage}%
+                            &lt;/div>
+                        &lt;/div>
+                    &lt;/div>
+                
+                    &lt;div id="subtask_${i}" class="collapse show p-0 mt-0 shadow rounded w-100 border mb-3" style="max-height:400px!important;font-size:14px;overflow-x:hidden;" >
+                    &lt;div id="specificTask_tabsOfsubtasks">
+                        &lt;ul class="nav nav-tabs flex-nowrap w-100" style="overflow-y:hidden;overflow-x:scroll;">
+                            &lt;li class="nav-item px-0">
+                                &lt;a class="nav-link px-2 activeSub text-capitalize far fa-eye h-100" id="Task_viewSubtask${i}-tab" href="#" task-Subtasks-tab-target="#Task_viewSubtask${i}">
+                                    ${($(window).width() > '890')?" view":""}
+                                &lt;/a>
+                            &lt;/li>
+                            &lt;li class="nav-item px-0">
+                                &lt;!--&lt;a class="nav-link px-2 py-1 text-capitalize bi bi-card-checklist h-100" id="Task_checkList${i}-tab" href="#" task-Subtasks-tab-target="#Task_checkList${i}">
+                                    ${($(window).width() > '890')?" check":""}
+                                &lt;/a>
+                            &lt;/li>-->
+                            &lt;li class="nav-item px-0">
+                                &lt;a class="nav-link px-2 text-capitalize fas fa-plus h-100" id="Task_AddLog${i}-tab"
+                                 href="#" task-Subtasks-tab-target="#Task_AddLog${i}">
+                                    Log
+                                &lt;/a>
+                            &lt;/li>
+                            &lt;li class="nav-item px-0">
+                                &lt;a class="nav-link px-2 text-capitalize fas fa-sign-in-alt h-100" id="Task_log${i}-tab" href="#" task-Subtasks-tab-target="#Task_log${i}">
+                                    ${($(window).width() > '890')?" logs":""}
+                                &lt;/a>
+                            &lt;/li>
+                            &lt;li class="nav-item px-0">
+                                &lt;a class="nav-link px-2 text-capitalize far fa-comment h-100" id="Task_comments${i}-tab" href="#"
+                                data-TaskCommentID="subT_comment_${i}" data-SubtTaskID="${subTaskCalculated[i]._id}"
+                                 data-TaskID="${taskID}" data-divID="taskList_specificTask_subTaskComment_list_${i}" 
+                                 task-Subtasks-tab-target="#Task_comments${i}">
+                                    ${($(window).width() > '890')?" comments":""}
+                                &lt;/a>
+                            &lt;/li>
+                            &lt;li class="nav-item px-0">
+                                &lt;a class="nav-link px-2 text-capitalize far fa-trash-alt text-danger deleteSubtask h-100" href="#" data-title="${subTaskCalculated[i].name.trim()}">
+                                    ${($(window).width() > '890')?" Delete":""}
+                                &lt;/a>
+                            &lt;/li>
+                        &lt;/ul>
+                    &lt;/div>
+                    
+                    &lt;div class="px-1 px-md-2">
+                        &lt;div id="Task_AddLog${i}" class="d-none" task-Subtasks-tab-content style="height:265px!important;">
+                            &lt;div class="form-row bg-white rounded p-2" id="taskList_specificTask_subTasks_AddLog_${i}">
+                                &lt;div class="form-group col-7 col-md-6">
+                                    &lt;label class="text-capitalize text-dark" id="logProgress_label_date"> date&lt;/label>
+                                    &lt;input type="date" class="form-control" id="logProgress_input_date">
+                                &lt;/div>
+                                &lt;div class="col-5 col-md-5">
+                                    &lt;div class="d-flex justify-content-md-end justify-content-start pr-2 w-100">
+                                        &lt;output class="shadow border text-center rounded px-1 text-dark font-weight-bolder w-50" id="logProgressForm_subtaskState">Progress: ${subTaskCalculated[i].percentage}%&lt;/output>
+
+                                    &lt;/div>
+                                &lt;/div>
+                                 
+                                &lt;div class="form-group col-md-6">
+                                    &lt;label class="text-capitalize d-block text-dark" id="logProgress_label_location">location&lt;/label>
+                                    &lt;div class="d-flex align-items-center">
+                                        &lt;select class="selectpicker" title="Select location" data-style="text-dark font-weight-light text-capitalize rounded border" data-live-search="true" id="logProgress_select_location" value="">
+                                            &lt;option >&lt;/option>
+                                        &lt;/select>
+                                        &lt;i class="fas fa-plus addInList ml-3">&lt;/i>
+                                    &lt;/div>
+                                &lt;/div>
+                                &lt;div class="offset-6">&lt;/div>  
+                                &lt;div class="form-group col-md-6">
+                                    &lt;label class="text-capitalize text-dark" id="logProgress_label_loggedHours">logged hours&lt;/label>
+                                    &lt;input type="number" min="0" class="form-control" id="logProgress_input_loggedHours" step="0.01">
+                                &lt;/div>
+                                &lt;div class="form-group col-md-6">
+                                    &lt;label class="text-capitalize text-dark" id="logProgress_label_percentage">percentage&lt;/label>
+                                    &lt;input type="number" min="0" class="form-control" id="logProgress_input_percentage" step="0.01">
+                                &lt;/div>
+
+                                &lt;div class="form-group col-md-12">
+                                    &lt;label class="text-capitalize text-dark" id="logProgress_label_notes">notes&lt;/label>
+                                    &lt;textarea rows="4" cols="12" class="form-control" id="logProgress_input_notes">&lt;/textarea>
+                                &lt;/div>
+                                &lt;div class="offset-8">&lt;/div>
+                                &lt;div class="form-group col-md-12">
+                                    &lt;label class="text-capitalize text-dark" id="logProgress_label_notes">attachments&lt;/label>
+                                    &lt;input type="file" class="d-none" id="logProgress_input_attachments" multiple>
+                                    &lt;label class="overflow-auto h-50 text-capitalize text-secondary w-100 border p-2 rounded" for="logProgress_input_attachments">&lt;p class="text-center m-auto">Upload&lt;/p>&lt;/label>
+                                &lt;/div>
+                                &lt;div class="col-md-12 d-flex justify-content-center justify-content-md-end">
+                                    &lt;button type="submit" data-subtaskName="${subTaskCalculated[i].name.trim()}" class="logProgress_button_submit font-weight-bold btn blue-gradient text-white mt-auto rounded" id="logProgress_button_submit_${i}">submit&lt;/button>
+                                &lt;/div>
+                            &lt;/div>
+                        &lt;/div>
+                        &lt;div id="Task_viewSubtask${i}" task-Subtasks-tab-content style="height:265px!important;">
+                            &lt;ul class="text-capitalize text-dark list-unstyled py-3 px-2 px-md-4">
+
+                                &lt;li class="py-1">est. time : &lt;output>${subTaskCalculated[i].hours}Hrs&lt;/output>&lt;/li>
+                                &lt;li class="py-1">type : &lt;output>${subTaskCalculated[i].type}&lt;/output>&lt;/li>
+                                &lt;li class="py-1">log hrs : &lt;output>${subTaskCalculated[i].logHours}Hrs&lt;/output>&lt;/li>
+                                &lt;li class="py-1">percent : &lt;output>${Math.floor(subTaskCalculated[i].percentage)}%&lt;/output>&lt;/li>
+                                &lt;li class="py-1">notes : &lt;output>${(subTaskCalculated[i].notes ==undefined)?"":subTaskCalculated[i].notes}&lt;/output>&lt;/li>
+                            &lt;/ul>
+                        &lt;/div>
+
+                        &lt;div id="Task_checkList${i}" class="d-none" task-Subtasks-tab-content style="height:265px!important;">
+                            sdg
+                        &lt;/div>
+                        &lt;div id="Task_log${i}" class="d-none" task-Subtasks-tab-content style="height:265px!important;">
+                            &lt;table class="table rounded table-hover table-bordered table-sm" >
+                            ${fillTableLogForSubTask(logsForEachSubTask)}
+                            &lt;/table>
+                        &lt;/div>
+                        &lt;div id="Task_comments${i}" class="d-none pt-1" task-Subtasks-tab-content style="height:265px!important;">
+                            
+                            &lt;div id="taskList_specificTask_subTaskComment_list_${i}" class="p-0 m-0"  style="height:163px;overflow-y:auto;">
+                                
+                            &lt;/div>
+                            &lt;div class="form-group pb-0 mb-0" style="height:90px;">
+                                &lt;textarea class="form-control mb-1" placeholder="Enter Comment" id="taskList_specificTask_subTaskComment">&lt;/textarea>
+                               &lt;div class='d-flex justify-content-between p-0 m-0' >
+                                    &lt;i class="border-info fas fa-redo-alt mt-1 border border-info text-info p-1 rounded" id="taskList_specificTask_subTaskComment_refresh"
+                                    data-SubtTaskID="${subTaskCalculated[i]._id}" data-TaskID="${taskID}"
+                                        data-divID="taskList_specificTask_subTaskComment_list_${i}">&lt;/i>
+                                    &lt;button data-TaskID="${taskID}" data-SubtTaskID="${subTaskCalculated[i]._id}" 
+                                        data-divID="taskList_specificTask_subTaskComment_list_${i}"
+                                    class="button_Comment btn btn-outline-info"
+                                        id="taskList_specificTask_subTaskComment_submit" type="button">
+                                        
+                                    &lt;/button>
+                               &lt;/div>
+                            &lt;/div>
+                        &lt;/div>
+                    &lt;/div>
+                    &lt;/div>
+                &lt;/div>
+                    `;
+    };
+    subtaskTable.innerHTML = subtaskTableRow;
+
+    openCommentsTabInSubTasks();
+    fillTaskLogProgressData();
+    deleteSubTaskS();
+    subTaskTabs();
+    submitSubTaskComment(taskID);
+    refreshComments(taskID);
+    submitLogProgressSubTask(taskID);
+    //SubTaskOpenLog(taskData)
+
+    /* let subtask_checkList = document.querySelectorAll('[id*="subtask_checkList_"]');
+    subtask_checkList.forEach(viewTaskBtn => {
+        console.log(viewTaskBtn);
+        viewTaskBtn.onclick = function(e) {
+
+        };
+    }); */
+};
+
+function openCommentsTabInSubTasks() {
+    let commentsButtons = document.querySelectorAll('[data-TaskCommentID*="subT_comment_"]')
+    commentsButtons.forEach(btnCommentView => {
+        btnCommentView.addEventListener('click', function(e) {
+
+            let subTaskid = e.target.attributes['data-SubtTaskID'].value
+            let TaskID = e.target.attributes['data-TaskID'].value
+            let divID = e.target.attributes['data-divID'].value
+
+            fillCommentsListInSubTaskView(TaskID, subTaskid, `${divID}`)
+        })
+    })
+};
+
+/**
+ * function that delete subtask after get object of subtask name and task id to send this object to removeSubtask function
+ * @function deleteSubTaskS
+ */
+function deleteSubTaskS() {
+    //when click add will get subttask name, taskID and send it to removeSubTask function
+    let deleteSubTaskInViewSpecificTask = document.querySelectorAll('#taskList_specificTask #accordionSubtasks .deleteSubtask')
+    deleteSubTaskInViewSpecificTask.forEach(deleteSubTask => {
+        let removedSubTask = {};
+
+        deleteSubTask.onclick = function(e) {
+            //stop clickable row to click when click delete subTask
+            document.querySelector('#warningAlertModal_close').innerHTML = "cancel"
+            warningAlert(`Are Sure you want to delete '${e.target.title.trim()}' ?`, () => {
+                document.querySelector('#warningAlertModal_close').innerHTML = "close"
+
+                let subTaskName = e.target.attributes['data-title'].value.trim()
+                e.stopPropagation();
+
+                let IDofTask = specificTaskModal.querySelector('#taskList_specificTask_taskID').value
+                removedSubTask = {
+                    taskID: IDofTask,
+                    name: subTaskName.trim()
+                };
+
+                removeSubTask(removedSubTask);
+
+
+
+            }, () => {
+                document.querySelector('#warningAlertModal_close').innerHTML = "close"
+            })
+        };
+    });
+};
+
+//to store existing timeouts to be clear when another task opened
+var timeouts = [];
+
+function fillCommentsListInSubTaskView(TaSKID, SubTaskID, divID) {
+
+    function getVisualName(userID) {
+        var userVisualName;
+        for (let user of usersList) {
+            if (user.userID == userID) {
+                userVisualName = user.visualName;
+                break;
+            };
+        };
+        return userVisualName;
+    };
+
+    /*  function timeoutReload() {
+    	setTimeout(() => {
+    		fillCommentsListInSubTaskView(TaSKID, SubTaskID, divID);
+    	}, 3000);
+    }
+*/
+    get(
+        IDENTIFIERS.TASKS.SUB_TASKS.COMMENTS, {
+            taskID: TaSKID,
+            subtaskID: SubTaskID,
+        },
+        function(data) {
+
+            let rowComment = ``;
+            let height
+            for (let i = 0; i &lt; data.length; i++) {
+                height = data.length
+                rowComment +=
+                    `
+                    &lt;div class="p-2">
+                    &lt;div class="rgba-white-lighter border shadow text-dark px-3 pt-2 pb-1"  style="border-radius:25px;">
+                        &lt;div class="d-flex justify-content-between p-0">
+                            &lt;small class="">${getVisualName(data[i].by)}&lt;/small>
+                            &lt;small class=''>${(new Date(data[i].time)).toLocaleString().split(',')[0]}-${(new Date(data[i].time)).toLocaleTimeString()}&lt;/small>
+                        &lt;/div>
+                        &lt;p>${data[i].val}&lt;/p>
+                    &lt;/div>
+                &lt;/div>
+                `
+            };
+            document.querySelector(`#${divID}`).innerHTML = rowComment;
+
+            document.querySelector(`#${divID}`).parentElement.querySelector('#taskList_specificTask_subTaskComment_submit')
+                .classList.remove('button_Loading');
+
+            document.querySelector(`#${divID}`).parentElement.querySelector('#taskList_specificTask_subTaskComment_submit')
+                .classList.add('button_Comment');
+
+            /*  let timeout = setTimeout(() => {
+	    		fillCommentsListInSubTaskView(TaSKID, SubTaskID, divID);
+	    	}, 3000);
+	    	timeouts.push(timeout); */
+            document.querySelector(`#${divID}`).scrollTo(0, document.querySelector(`#${divID}`).scrollHeight);
+        },
+        function(data) {
+
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+        }
+    );
+};
+
+function submitSubTaskComment(TaskID) {
+    let subTaskCommentSubmit = document.querySelectorAll('#taskList_specificTask_subTaskComment_submit')
+    subTaskCommentSubmit.forEach(btn => {
+        btn.onclick = (e) => {
+            e.target.classList.remove('button_Comment')
+            e.target.classList.add('button_Loading')
+            let commentValue = e.target.parentElement.previousElementSibling.value
+            let subTaskid = e.target.attributes['data-SubtTaskID'].value
+            let divID = e.target.attributes['data-divID'].value
+            let obj = {
+                taskID: TaskID,
+                comment: commentValue,
+                subtaskID: subTaskid
+            }
+            runLoadingAnimation('Loading ... .')
+            post(
+                IDENTIFIERS.TASKS.SUB_TASKS.NEW_COMMENT,
+                obj,
+                function(result) {
+                    stopLoadingAnimation();
+                    fillCommentsListInSubTaskView(TaskID, subTaskid, divID)
+                    e.target.parentElement.previousElementSibling.value = ""
+                },
+                function(data) {
+                    stopLoadingAnimation();
+                }
+            );
+        };
+    });
+};
+
+/**
+ * function that fill table of specific subtask's log
+ * @function fillTableLogForSubTask
+ * @param {Array} arr - filtered array of logs
+ */
+function fillTableLogForSubTask(arr) {
+    function getVisualName(userID) {
+        var userVisualName;
+        for (let user of usersList) {
+            if (user.userID == userID) {
+                userVisualName = user.visualName;
+                break;
+            };
+        };
+        return userVisualName;
+    };
+    let taskListTableRow = `
+    &lt;thead class="thead-dark">
+    &lt;tr class="text-center">
+        &lt;th style="width: 2%;" class="text-capitalize" scope="col">hours&lt;/th>
+        &lt;th style="width: 3%;" class="text-capitalize" scope="col">%&lt;/th>
+        &lt;th style="width: 10%;" class="text-capitalize" scope="col">Date&lt;/th>
+        &lt;th style="width: 10%;" class="text-capitalize" scope="col">by&lt;/th>
+    &lt;/tr>
+&lt;/thead>
+     `;
+    for (let i = 0; i &lt; arr.length; i++) {
+        taskListTableRow +=
+            `
+            &lt;tbody class="text-center">
+            &lt;tr class="text-capitalize">
+                &lt;td>${arr[i].hours}&lt;/td>
+                &lt;td>${arr[i].percentage}&lt;/td>
+                &lt;td>${arr[i].date}&lt;/td>
+                &lt;td>${(getVisualName(arr[i].by)==undefined)?"":getVisualName(arr[i].by)}&lt;/td>
+            &lt;/tr>
+        &lt;/tbody>
+    `
+
+    }
+    return taskListTableRow
+};
+
+function refreshComments(TaSKID) {
+
+    let taskList_specificTask_subTaskComment_refresh = document.querySelectorAll('#taskList_specificTask_subTaskComment_refresh');
+    taskList_specificTask_subTaskComment_refresh.forEach(refreshCom => {
+        refreshCom.onclick = function(e) {
+            let subTaskid = e.target.attributes['data-SubtTaskID'].value
+            let divID = e.target.attributes['data-divID'].value
+
+            fillCommentsListInSubTaskView(TaSKID, subTaskid, divID)
+            document.querySelector(`#${divID}`).scrollTo(0, document.querySelector(`#${divID}`).scrollHeight);
+        }
+    })
+};</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

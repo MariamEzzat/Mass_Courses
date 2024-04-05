@@ -1,0 +1,61 @@
+<div class="d-flex justify-content-end pt-3">
+    <button class="btn btn-danger text-capitalize rounded-circle" id="addCourseForStudent_close">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+<div class="row" id="addCourseForStudent_form">
+    <input type="text" hidden id="addCourseForStudent_studentID">
+    <div class="col-md-10 rounded shadow card p-2 mx-auto">
+        <div class="d-flex justify-content-center py-3 mx-auto">
+            <h3 class="dark-green text-uppercase font-weight-bold">❖ add course for '<span></span>' ❖</h3>
+        </div>
+        <div class="parent px-2">
+            <div class="p-2 mb-2 border rounded row parentChild_course">
+                <div class="form-group col-lg-2">
+                    <label class="text-capitalize pl-2" id="addCourseForStudent_label_course">course</label>
+                    <div class="d-flex align-items-center">
+                        <select class="form-control text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" id="addCourseForStudent_select_courses" value="">
+                            
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group col-lg-3">
+                    <label for="" class="text-capitalize font-weight-bold"> from / to</label>
+                    <div class="bg-white border rounded-pill d-flex flex-wrap flex-md-nowrap">
+                        <input type="date" class="form-control w-50 border-0 bg-transparent py-1 rounded-pill" id="addCourseForStudent_filter_fromDate">
+                        <span class="lineAfter"></span>
+                        <input type="date" class="form-control w-50 border-0 bg-transparent py-1 rounded-pill" id="addCourseForStudent_filter_toDate">
+
+                    </div>
+                </div>
+                <div class="form-group col-lg-1">
+                    <label class="text-capitalize pl-2" id="newCourse_label_replay">replay</label>
+                    <input type="number" class="form-control rounded-pill" id="addCourseForStudent_input_replay">
+                    <label class="text-capitalize pl-2" for="addCourseForStudent_checkbox_unlimited">
+                        <input type="checkbox" class="custom-checkbox" id="addCourseForStudent_checkbox_unlimited" name="unlimited"> unlimited
+                    </label>
+                </div>
+                <div class="form-group col-lg-2 my-auto">
+                    <label class="text-capitalize" id="newLecture_label_subscribeToZoom">
+                            <input type="checkbox" class="custom-checkbox" id="newLecture_input_subscribeToZoom" name="subscribeToZoom"> subscribe to zoom
+                        </label>
+
+                </div>
+                <div class="form-group col-lg-3">
+                    <label class="text-capitalize pl-2" id="newCourse_label_notes">notes</label>
+                    <textarea rows="1" class="form-control rounded-pill px-3 py-2" id="addCourseForStudent_input_notes" style="overflow:hidden"></textarea>
+                </div>
+                <div class="form-group col-lg-2 py-0 my-auto ml-auto d-flex justify-content-end">
+                    <i class="addRow_Course fas fa-plus text-warning border rounded p-2 "></i>
+                    <i class="fas fa-times border border-danger rounded text-danger p-2 removeRow_Course d-none"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-top pt-2 mt-1">
+            <div class="d-flex justify-content-center justify-content-md-end">
+                <button type="submit" class="btn rgba-darkBlue text-white rounded px-5 py-2" id="addCourseForStudent_buttonSubmit">add</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: FrontMarshal.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: FrontMarshal.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*const Cote = require('cote');
+ */
+const dev = require("./utils/dev");
+
+const ServicesMarshal = require("./services/ServicesMarshal");
+const Logger = require("./Logger");
+
+/*
+	FRONT MARSHAL 
+		MIDDLE WARE BETWEEN IO(ENTRY POINT) AND THE SERVICES MARSHAL
+	RESPONSIBLITIES:
+		RECIEVES MSG FROM IO (ENTRY POINT)
+		SEND &amp; RECIEVE IT TO ENCRYPTION.JS TO DYCREPT
+		SEND IT TO GATEWAY LOGGER TO LOG RAW REQUEST OR DYCREPTION FAIL
+		THEN DIRECT IF DYCREPTION SUCCESS TO THE SERVICE MARSHAL
+
+
+	AFTER REMOVING COTEJS:
+		THIS MODULE CONTAINS reciever FUNCTION
+		FRONT MARSHAL ROUTES THE DATA TO DIFFERET MODULES,
+			FOR NOW: LOGGER &amp; SERVICES MARSHAL
+		ROUTING IS BY CALLING OTHER MODULES WITHOUT COTE
+		ASYNCROUNES REQUEST FLOW INTRODUCED
+			BY CALLING MODULES ASYNCROUNESLY
+		VOTING SYSTEM INTRODUCED
+			FRONT MARSHAL WILL RESPOND TO THE GIVEN CALLBACK
+			IFF ALL CALLS RESPONDED
+
+		
+*/
+
+/*
+console.log("hi I'm front marshal I've been called by myself");
+
+const FrontResponder = new Cote.Responder({ name: 'Front Marshal', key:'FrontMarshal' });
+
+const EncryptionRequester = new Cote.Requester({ name: 'Encryption', key:'Encryption' });
+
+const LoggerRequester = new Cote.Requester({name: 'Logger', key:'Logger'});
+
+const ServicesMarshalRequester = new Cote.Requester( {name: 'Services Marshal', key: 'Services Marshal'});
+
+
+FrontResponder.on ('actionRouting', (recievedEnvylop, EntryPointCallback) => {
+
+	var data = recievedEnvylop.data;
+
+	dev.logTrace(data, 'Front Marshal recieved actionRouting');
+
+	startRouting (data, EntryPointCallback);
+
+});
+*/
+
+/*
+	RECIEVES ENVELOPE: 
+		attachedUserID,
+		serviceID,
+		requestID,
+		user: {username, token},
+		data &lt;- raw request 
+*/
+
+/**
+ * - TODO: IMPLEMENT VOTING SYSTEM.
+ *    VOTING SYSTEM IS DECIDING THE POINT TO CALL NEXT.
+ *    VOTING: CALLING FUNCTIONS ASYNCROUNESLY THEN AFTER ALL RESPONED CALL NEXT
+ * - WHEN ADDING MORE CALLS: CHECK CALLS RECIEVED DATA INTEGRATION
+ * @function reciever - ./
+ * @param {*} recievedEnvelope 
+ * @param {*} next 
+ */
+exports.reciever = (recievedEnvelope, next) => {
+    // TODO: IMPLEMENT VOTING SYSTEM.
+    //			VOTING SYSTEM IS DECIDING THE POINT TO CALL NEXT.
+    //			VOTING: CALLING FUNCTIONS ASYNCROUNESLY THEN AFTER ALL RESPONED CALL NEXT
+
+    let GOAL = 2;
+    let votes = 0;
+    let envelope = {};
+
+    function checkVote() {
+        if (++votes >= GOAL) { // check if all calls responded
+            next(envelope);
+        }
+    }
+
+    /*	to calculate time taken by the reciever.
+
+    	servicesMarshalT0 = performance.now();
+    	servicesMarshalT = performance.now();
+    	servicesMarshalTimeTaken = servicesMarshalT - servicesMarshalT0;
+    */
+
+    // SERVICES MARSHAL
+    ServicesMarshal.reciever(
+        recievedEnvelope,
+        (recievedEnvelope) => {
+            envelope = recievedEnvelope;
+            checkVote();
+        }
+    );
+
+    // LOGGER
+    Logger.reciever(
+        JSON.parse(JSON.stringify(recievedEnvelope)), // to give a copy, to avoid data referenced
+        (recievedEnvelope) => {
+            checkVote();
+        }
+    );
+
+
+    // WHEN ADDING MORE CALLS: CHECK CALLS RECIEVED DATA INTEGRATION 
+};
+
+/*
+async function startRouting(data, finalCallback) {
+	//NOTE: THIS FUNCTION IS EXPECTED TO MANAGE ROUTING DATA TO SERVICES
+	//		IT SHOULD HANDLE BIDIRECTIONAL ORDERED-CALLBACKS FROM&amp;TO SERVICES
+	// 		TRYING PROMISES DIRECTIONS
+	console.log("FRONT MARSHAL.");
+	//TODO: SEND TO DECRYPT
+	//		SEND TO LOG ACTION
+	//		SEND TO SERVICES MARSHAL INCASE OF SUCCESS OF PREVIOUS
+	//		SEND TO ENCRYPT
+	//		SEND TO LOG REPOND
+	//	 	GIVE RETURN CALLBACKS (SEND BACK TO ENTRY POINT)
+
+
+	function postDecryption (recievedEnvylop) {
+		//NOTE: 2 STATUS F OR S, 
+		//		(F: SEND TO LOG -> BACK TO FINAL CALLBACK)
+		//		(S: SEND TO LOG -> SEND TO FROMT MARSHAL)
+
+		if (recievedEnvylop.status == 'SUCCESS') {
+			// SEND TO LOG -> TO SERVICES MARSHAL
+
+			dev.logTrace(recievedEnvylop.data, 'Front Marshal recieved decrypt +');
+
+
+			dev.logTrace(recievedEnvylop.data, 'Front Marshal sending to log');
+			var envylop = {type:'request log', data: recievedEnvylop.data};
+			LoggerRequester.send(envylop, postLoggingRequest);// TO LOG
+
+		} 
+		else if (recievedEnvylop == 'FAILED') {
+			// SEND TO LOG -> FINAL CALLBACK
+			// ASSUME DECRYPTION ALWAYS SUCCESS
+		}
+
+	}
+
+	function postLoggingRequest (recievedEnvylop) {
+
+		if (recievedEnvylop.status == 'SUCCESS') {
+			//SEND
+
+			dev.logTrace(recievedEnvylop.data, 'Front Marshal recieved logging on request');
+
+			dev.logTrace(recievedEnvylop.data, 'Front Marshal sending to Services Marshal');
+			var envylop = {type:'request service', data: recievedEnvylop.data};
+			ServicesMarshalRequester.send(envylop, postServicesMarshal);// TO SERVICES MARSHAL
+		}
+		else if (recievedEnvylop.status == 'FAILED') {
+			//ASSUME LOG ALWAYS SUCCESS
+
+		}
+
+	}
+
+	function postServicesMarshal (recievedEnvylop) {
+		//TODO: SEND TO LOG RESPOND -> ENCRYPT -> FINAL
+
+		if (recievedEnvylop.status == 'SUCCESS') {
+
+			dev.logTrace (recievedEnvylop.data, 'Front Marshal recieved Services Marshal +');
+
+			dev.logTrace (recievedEnvylop.data, 'Front Marshal sending to log');
+			var envylop = {type:'respond log', data: recievedEnvylop.data}
+			LoggerRequester.send(envylop, postLoggingRespond); // TO LOG
+		}
+		else if (recievedEnvylop.status == 'FAILED') {
+
+		}
+
+
+	}
+
+	// NOTICE: LOGGING RESPOND IS WHEN THE DATA IS READY TO BE SENT BACK TO FRONT END
+	function postLoggingRespond (recievedEnvylop) {
+
+		if (recievedEnvylop.status == 'SUCCESS') {
+			// SEND TO ENCRYPT -> FINAL
+			dev.logTrace (recievedEnvylop.data, 'Front Marshal recieved logging respond +');
+
+			dev.logTrace (recievedEnvylop.data, 'Front Marshal sending to decrypt');
+			var envylop = {type: 'encrypt', data: recievedEnvylop.data}
+			EncryptionRequester.send(envylop, postEncryption);// TO ENCRYPT
+		}
+		else if (recievedEnvylop == 'FAILED') {
+			// ASSUME NO LOG FAILED
+		}
+
+	}
+
+	// NOTICE: ENCRYPTING PLAIN DATA TO BE SENT BACK TO FRONT END CYPHERED
+	function postEncryption (recievedEnvylop) {
+
+		if (recievedEnvylop.status == 'SUCCESS') {
+			dev.logTrace (recievedEnvylop.data, 'Front Marshal recieved encryption n');
+
+			dev.logTrace (recievedEnvylop.data, 'Front Marshal sending to Entry Point');
+			finalCallback(recievedEnvylop);
+		}
+		else if (recievedEnvylop.status == 'FAILED') {
+			// ASSUME NO ENCRYPTION FAILED
+		}
+		
+	}
+
+
+
+//  ** STARTING POINT ** 
+
+	dev.logTrace(data, 'Front Marshal sending to decrypt');
+	//NOTE: PREPARE DATA TO SEND TO ENCRYPTION TO DECRYPT
+	//		THIS IS THE FIRST STAGE 			
+	var envylop = {type: 'decrypt', data: data};
+	EncryptionRequester.send(envylop, postDecryption);// TO DECRYPT
+
+}
+
+
+
+
+
+
+
+
+
+
+async function sendForDecryption (data, successCallback, failedCallback) {
+
+//*devtrace
+	if (dev.DEV_TRACE_ENABLED) {
+		data.servicesRoutes.push('FrontMarshal sending to decrypt');
+	}
+
+	var envylop = {type:'decrypt', data: data};
+
+	
+
+
+	function postDecryptSuccess (recievedEnvylop) {
+		if (recievedEnvylop == undefined) console.log('FRONTMARSHAL recieved envylop undefined'); 
+		if (dev.DEV_TRACE_ENABLED) {
+			recievedEnvylop.data.servicesRoutes.push('FrontMarshal recieved dycrept +');
+		}
+		// RETURN TO CALLER
+		successCallback (recievedEnvylop.data);
+	}
+
+	function postDecryptFailed (recievedEnvylop) {
+		if (recievedEnvylop == undefined) console.log('FRONTMARSHAL recieved envylop undefined'); 
+		if (dev.DEV_TRACE_ENABLED) {
+			recievedEnvylop.data.servicesRoutes.push('FrontMarshal recieved dycrept -');
+		}
+		// RETURN TO CALLER
+		failedCallback (recievedEnvylop.data);
+	}
+
+// NOTE: HERE ENCRYPTION SENT BACK ENVYLOP WITH STATUS EITHER SUCCESS OR FAIL
+//		 ACCORDING TO THE STATUS WE CALL FIAL OR SUCCESS CALLBACKS 
+	EncryptionRequester.send(
+		envylop,
+		// returns RE function routes to success and failed
+		dev.combineForCoteCB(postDecryptSuccess, postDecryptFailed) 
+	);
+	
+
+}
+*/</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

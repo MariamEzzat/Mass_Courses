@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/js/frontEnd/tasks/editTask.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/js/frontEnd/tasks/editTask.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * activate button edit to edit submitted task
+ * @function EditTaskModal
+ * @param {object} taskDetails - represent  object of saved task
+ * @param {string} taskID - represent viewed task's ID
+ */
+function EditTaskModal(taskDetails, taskID) {
+    let editTaskButton = document.querySelector('#taskList_specificTask_edit');
+    editTaskButton.onclick = function(e) {
+        modalNewTask.classList.remove('d-none');
+        document.querySelector('#newTask_button_submit').classList.add('d-none');
+        document.querySelector('#newTask_button_edit').classList.remove('d-none');
+        modalNewTask.querySelector('.subtasksNewTask').classList.add('d-none');
+        fillEditTaskForm(taskDetails, taskID);
+    };
+};
+
+
+
+/**
+ *  edit task by filling modal new task with pre saved task data so user can see thier entered data and edit it
+ * @function fillEditTaskForm 
+ * @param {object} taskEditData - represent details for requested task to edit
+ * @param {string} taskID - represent viewed task's ID
+ */
+function fillEditTaskForm(taskEditData, taskID) {
+
+    runLoadingAnimation('Loading ... .')
+    get(
+        IDENTIFIERS.TASKS.NEW_TASK_PRE_DATA, {},
+        function(preData) {
+            stopLoadingAnimation();
+            fillNewTaskPreData(preData);
+            document.querySelector('#newTaskForm_hidden_taskID').value = taskID
+            $("#newTask_input_name").val(taskEditData.taskData.description.name)
+            $("#newTask_input_notes").val(taskEditData.taskData.description.notes)
+            $("#newTask_input_dueDate").val(taskEditData.taskData.time.deadline)
+            $("#newTask_input_estimatedTime").val(taskEditData.taskData.time.estimation.amount)
+            $("#newTask_input_estimatedTimeStart").val(taskEditData.taskData.time.estimation.start)
+            $("#newTask_input_estimatedTimeEnd").val(taskEditData.taskData.time.estimation.end)
+            $("#newTask_input_auditionNotes").val(taskEditData.taskData.audition.note)
+
+            $("#newTask_input_taskCategory").selectpicker('val', taskEditData.taskData.description.category);
+            $("#newTask_input_taskProject").selectpicker('val', taskEditData.taskData.description.project);
+            $("#newTask_input_assignedFrom").selectpicker('val', taskEditData.taskData.responsibilities.from);
+            $("#newTask_input_assignedTo").selectpicker('val', taskEditData.taskData.responsibilities.to);
+            $("#newTask_input_participants").selectpicker('val', taskEditData.taskData.responsibilities.participants);
+            $("#newTask_input_observers").selectpicker('val', taskEditData.taskData.responsibilities.observers);
+            $("#newTask_input_auditedBy").selectpicker('val', taskEditData.taskData.audition.by);
+            $("#newTask_input_taskPriority").selectpicker('val', taskEditData.taskData.description.priority);
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+            modalNewTask.classList.add('d-none');
+        }
+    );
+};
+
+/**
+ * Represents a task after edit.
+ * @function retrieveEditTaskInputs
+ * @param {object} dataObj - get fields have values entered by user
+ * @param {object} taskObject - task object that will be sent to server after edit
+ */
+function retrieveEditTaskInputs() {
+    let dataObj = getIDsAndValuesFormAnyForm('newTask_form')
+    taskObject = {
+        taskID: dataObj.newTaskForm_hidden_taskID,
+        taskData: {
+            description: {
+                name: dataObj.newTask_input_name.trim(),
+                notes: dataObj.newTask_input_notes,
+                category: dataObj.newTask_input_taskCategory,
+                priority: dataObj.newTask_input_taskPriority,
+                project: dataObj.newTask_input_taskProject,
+            },
+            time: {
+                deadline: dataObj.newTask_input_dueDate,
+                estimation: {
+                    amount: dataObj.newTask_input_estimatedTime,
+                    start: dataObj.newTask_input_estimatedTimeStart,
+                    end: dataObj.newTask_input_estimatedTimeEnd
+                }
+            },
+            responsibilities: {
+                from: dataObj.newTask_input_assignedFrom,
+                to: dataObj.newTask_input_assignedTo,
+                participants: cleanArray($('#newTask_input_participants').val()),
+                observers: cleanArray($('#newTask_input_observers').val())
+            },
+            audition: {
+                by: dataObj.newTask_input_auditedBy,
+                note: dataObj.newTask_input_auditionNotes
+            },
+        }
+    };
+
+    return taskObject
+};
+
+let newTask_button_edit_submit = document.querySelector('#newTask_button_edit');
+/**
+ * button which send edited data of task by calling post function by post function
+ * @event submit - submit task after edit
+ */
+newTask_button_edit_submit.onclick = function(e) {
+    e.preventDefault()
+    let obj = retrieveEditTaskInputs();
+    runLoadingAnimation('Loading ... .')
+    post(
+        IDENTIFIERS.TASKS.EDIT_TASK,
+        obj,
+        function() {
+            stopLoadingAnimation();
+            notifyResult(true, 'Saved Successfully', () => {
+                clearNewTaskInputs();
+                document.querySelector('#newTask_button_edit').classList.add('d-none');
+                modalNewTask.classList.add('d-none');
+                GETspecificTask(specificTaskModal.querySelector('#taskList_specificTask_taskID').value)
+            });
+
+        },
+        function(data) {
+            stopLoadingAnimation();
+
+            if (data.errMsg == 'Server msg: "NO_CHANGE"') {
+                notifyResult('', 'No changes Made');
+                modalNewTask.classList.add('d-none');
+            } else {
+
+                if (LABELS.INVALID_INPUTS.INVALID_INPUTS_STATUS === data.status) {
+                    notifyResult(false, data.userMsg);
+                } else {
+                    notifyResult(false, data.userMsg);
+                    modalNewTask.classList.add('d-none');
+                }
+            }
+        }
+    );
+};</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

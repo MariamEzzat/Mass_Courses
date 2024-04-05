@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/js/frontEnd/tasks/taskSetting.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/js/frontEnd/tasks/taskSetting.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>let taskSetting_projectSetting_private_users_list = document.querySelector('#taskSetting_projectSetting_private_users_list')
+let taskSetting_projectSetting_private_users = [];
+/**
+ * get data choosen from list of private users and put it output to show it to user and save the array of selected users to use it in submit
+ * @event
+ */
+$('#taskSetting_projectSetting_private_users_list').change(function(e) {
+    let selected = $(e.target).val();
+    taskSetting_projectSetting_private_users = selected;
+    let selectedOption = $('#taskSetting_projectSetting_private_users_list').find('option:selected');
+    e.target.parentNode.nextElementSibling.innerHTML = '';
+    for (sel of selectedOption) {
+        e.target.parentNode.nextElementSibling.innerHTML += ` (${sel.innerHTML}) `;
+    }
+});
+
+let taskSetting_categorySetting_projectBased_projects_list = document.querySelector('#taskSetting_categorySetting_projectBased_projects_list');
+let taskSetting_categorySetting_privateBased_users = [];
+/**
+ * get data choosen from list of project based users and put it output to show it to user and save the array of selected users to use it in submit
+ * @event
+ */
+$('#taskSetting_categorySetting_projectBased_projects_list').change(function(e) {
+    let selected = $(e.target).val();
+    console.log(selected);
+    taskSetting_categorySetting_privateBased_users = selected;
+    let selectedOption = $('#taskSetting_categorySetting_projectBased_projects_list').find('option:selected');
+    e.target.parentNode.nextElementSibling.innerHTML = '';
+    for (sel of selectedOption) {
+        e.target.parentNode.nextElementSibling.innerHTML += ` (${sel.innerHTML})   `
+    };
+});
+
+/**
+ * when click on global in project setting section will close private collapse 
+ * @event click - if public project task setting is checked
+ */
+$('#taskSetting_projectSetting_input_public').on('click', function() {
+    if ($(this).is(':checked')) {
+        $(this).val(1)
+        taskSetting_projectSetting_private_users = []
+        $('#taskSetting_projectSetting_private_users ').collapse('hide');
+        $('#taskSetting_projectSetting_private_users_list').selectpicker('deselectAll');
+    };
+});
+
+// /**
+//  * in task setting if public is checked then its value =1 and if not checked its value = 0
+//  * @event click - if private project task setting is checked
+//  */
+$('#taskSetting_projectSetting_input_private').on('click', function() {
+    if ($(this).is(':checked')) {
+        $('#taskSetting_projectSetting_input_public').val(0)
+    }
+});
+
+// /**
+//  * when user do many clicks on private choice will keep collapse of users private opened
+//  * @event click -  if private project task setting is checked
+//  */
+$('#taskSetting_projectSetting_input_private').on('click', function() {
+    if ($(this).is(':checked')) {
+        $('#taskSetting_projectSetting_private_users').removeClass('show');
+    };
+});
+
+/**
+ * when click on global in category setting section will close project Based collapse
+ * @event click -  if public category task setting is checked
+ */
+$('#taskSetting_categorySetting_input_public').on('click', function() {
+    if ($(this).is(':checked')) {
+        $(this).val(1)
+        taskSetting_categorySetting_privateBased_users = []
+        $('#taskSetting_categorySetting_input_projectBased_projects ').collapse('hide')
+        $('#taskSetting_categorySetting_projectBased_users_list').selectpicker('deselectAll');
+    }
+});
+
+/**
+ * in task setting if public is checked then its value =1 and if not checked its value = 0
+ * @event click -  if projectBased category task setting is checked
+ */
+$('#taskSetting_categorySetting_input_projectBased').on('click', function() {
+    if ($(this).is(':checked')) {
+        $('#taskSetting_categorySetting_input_public').val(0)
+    }
+});
+
+/**
+ * when user do many clicks on private choice will keep collapse of users project based opened
+ * @event
+ */
+$('#taskSetting_categorySetting_input_projectBased').on('click', function() {
+    if ($(this).is(':checked')) {
+        $('#taskSetting_categorySetting_input_projectBased_projects').removeClass('show');
+    };
+});
+
+/**
+ * pre data from server get it and put it in list of users and projects and categories
+ * @function
+ * @param {object} tasksPreData - get data of lists in task setting tab
+ */
+function fillTasksSettingsPreData(tasksPreData) {
+    let privateProject = '&lt;option>&lt;/option>';
+    for (element of tasksPreData.users) {
+        privateProject += `&lt;option value="${element.userID}">${element.visualName}&lt;/option>`;
+    };
+    taskSetting_projectSetting_private_users_list.innerHTML = privateProject;
+    taskSetting_categorySetting_projectBased_users_list.innerHTML = privateProject
+    $("#taskSetting_projectSetting_private_users_list").selectpicker('refresh');
+    $("#taskSetting_categorySetting_projectBased_users_list").selectpicker('refresh');
+
+    let projectsList = '';
+    for (element of tasksPreData.projects) {
+        projectsList += `&lt;li>- ${element.name}&lt;/li>`;
+    };
+    document.querySelector('#taskSetting_projectsSetting_ul_savedProjects').innerHTML = projectsList;
+
+    let categoriesList = '';
+    for (element of tasksPreData.categories) {
+        categoriesList += `&lt;li>- ${element.name}&lt;/li>`;
+    };
+    document.querySelector('#taskSetting_categorySetting_ul_savedCategories').innerHTML = categoriesList;
+};
+
+/**
+ * submit project setting form
+ * @event submit - submit project setting form
+ * @function addNewProject - sent project object to this function
+ */
+let projectSettingForm = document.querySelector('#projectSetting');
+projectSettingForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    let formData = getIDsAndValuesFormAnyForm('projectSetting');
+    project = {
+        name: formData.taskSetting_projectSetting_input_projectName,
+        isPublic: parseInt(formData.taskSetting_projectSetting_input_public),
+        users: taskSetting_projectSetting_private_users
+    };
+    addNewProject(project)
+});
+
+/**
+ * submit category setting form
+ * @event submit - submit category setting form
+ * @function addNewCategory - sent category object to this function
+ */
+let categorySettingForm = document.querySelector('#categorySetting');
+categorySettingForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    let formData = getIDsAndValuesFormAnyForm('categorySetting');
+    categories = {
+        name: formData.taskSetting_categorySetting_input_categoryName,
+        isPublic: parseInt(formData.taskSetting_categorySetting_input_public),
+        users: taskSetting_categorySetting_privateBased_users
+    };
+    addNewCategory(categories);
+});</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

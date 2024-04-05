@@ -1,0 +1,26 @@
+Filter tasks according to selected inputs (assignedTo, project, overdue, estimation(future, overdue)
+pagination with a page size & page number
+
+call get(IDENTIFIERS.TASKS.FILTER, filterObject, (result:{tasks, users})=>{}, ({errMsg, userMsg}))
+
+filterObject: {
+	pageNumber: int // starts from 1
+	pageSize: int // how many tasks each page have
+	query: {
+		to: "userID", 
+		project: "project name string",
+		overdue: 1,
+		estimation: {
+			future: 1,
+			started: 1
+		}
+	}
+}
+important notes: 
+	pageNumber & pageSize are required (pageSize:10)
+	inside query property (filterObject.query) don't include what's not selected, eg: if user selected specific project then put property project inside query like: filterObject.query = {project: "projectname"}
+	estimation.future is for tasks that estimation start date in the future (just value 1 if selected)
+	estimation: future & started are contradictory means that only one of them not both (radio button)
+
+
+call get to retrieve tasks list with the sent filter then proceed with same as previous code & call get again for refresh eg: after user closed edit task, but with the same pageNumber

@@ -1,0 +1,85 @@
+
+
+
+
+
+universities: {
+	_id,
+	name,
+	hidden: 1/0 // default 0 not hidded
+
+}
+faculties: {
+	_id,
+	name, 
+	universityID,
+	hidden: 1/0 // default 0 not hidded
+}
+departments: {
+	_id,
+	name,
+	facultyID,
+	hidden: 1/0 // default 0 not hidded
+}
+sections: {
+	_id,
+	name,
+	departmentID,
+	hidden: 1/0 // default 0 not hidded
+}
+years: {
+	_id,
+	name,
+	sectionID,
+	hidden: 1/0 // default 0 not hidded
+}
+terms: {
+	_id,
+	name,
+	sectionID,
+	hidden: 1/0 // default 0 not hidded
+}
+subjects: {
+	_id,
+	name,
+	termID,
+	hidden: 1/0 // default 0 not hidded
+}
+
+
+
+
+hidden properties: 
+
+- for admins
+	it will be all shown with an indicator showing if its hidden or not
+
+- for students
+	recursively check if all hidden=0 to the root unit then show 
+	attachedData.isStudent = 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

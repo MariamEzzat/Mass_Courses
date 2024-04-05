@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: frontEnd/tasks/logRecord.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: frontEnd/tasks/logRecord.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/* ============================================log record table ============================================== */
+let logRecordTab_pageNumer = 1;
+let LogRecord_paginationList_buttons = document.querySelectorAll('#logRecord_paginationList li');
+
+let tasksDataLogRecord = [];
+
+/**
+ * get log records list by get function if success (max. 10 record per page)
+ * @constructor
+ */
+function loadLogRecordFirstTime() {
+    runLoadingAnimation('Loading ... .')
+    getTasksIDAndName();
+    get(
+        IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.FILTER, {
+            pageNumber: logRecordTab_pageNumer,
+            pageSize: 10,
+        },
+        function(data) {
+            stopLoadingAnimation();
+
+            fillLogRecordTable(data);
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+        }
+    );
+};
+
+/**
+ * get list of tasks' name and id only
+ * @constructor
+ */
+function getTasksIDAndName() {
+    runLoadingAnimation('get Data ... .')
+    get(
+        IDENTIFIERS.TASKS.BASIC, {},
+        function(datax) {
+            stopLoadingAnimation();
+            tasksDataLogRecord = datax
+
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+        }
+    );
+};
+
+// /**
+//  * pagination buttons to show next/previous log records 
+//  * @constructor
+//  */
+LogRecord_paginationList_buttons.forEach(btn => {
+    btn.onclick = function(e) {
+        e.preventDefault();
+        if (e.target.title == 'next') {
+            let pageN = parseInt(LogRecord_paginationList_buttons[1].children[0].title) + 1
+            LogRecord_paginationList_buttons[1].children[0].title = pageN
+            LogRecord_paginationList_buttons[1].children[0].innerHTML = pageN
+            logRecordTab_pageNumer = pageN
+            GetFilteredDataLogRecord({}, pageN)
+        } else if (e.target.title == 'previous' &amp;&amp; parseInt(LogRecord_paginationList_buttons[1].children[0].title) != 1) {
+            let pageP = parseInt(LogRecord_paginationList_buttons[1].children[0].title) - 1
+            LogRecord_paginationList_buttons[1].children[0].title = pageP
+            LogRecord_paginationList_buttons[1].children[0].innerHTML = pageP
+            logRecordTab_pageNumer = pageP
+
+            GetFilteredDataLogRecord({}, pageP)
+        }
+    }
+});
+
+/* get data that will  filter depend on it */
+/* function getFilterObject() {
+    let formData = getIDsAndValuesFormAnyForm('taskList_filter')
+    let estimationFilter = {
+        future: EstimationInfilterchoiceFuture,
+        started: EstimationInfilterchoiceStarted,
+        none: EstimationInfilterchoiceNone
+    }
+
+    let taskFilterObj;
+    if (EstimationInfilterchoiceFuture == undefined &amp;&amp; EstimationInfilterchoiceStarted == undefined &amp;&amp; EstimationInfilterchoiceNone == undefined) {
+        taskFilterObj = {
+            project: formData.taskList_filter_projects,
+            to: formData.taskList_filter_users,
+            overdue: checkOverDue
+        }
+    } else {
+        taskFilterObj = {
+            project: formData.taskList_filter_projects,
+            to: formData.taskList_filter_users,
+            estimation: removeEmptiesObjInsideObj(estimationFilter),
+            overdue: checkOverDue
+        }
+    }
+    return taskFilterObj
+};
+ */
+
+/**
+ * send filter object to get log record depend on it
+ * $ if user request page number 3 or 4 or whatever but no data exist, will show alert that no log records to show
+ * @constructor
+ * @param {object} filterOptions - represent the object will be sent to server,may contain user's name, project's name... etc
+ * @param {number} PageNumber - represent the page number that user request
+ */
+function GetFilteredDataLogRecord(filterOptions, PageNumber) {
+
+    runLoadingAnimation('Loading ... .')
+    get(
+        IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.FILTER, {
+            pageNumber: logRecordTab_pageNumer,
+            pageSize: 10,
+            query: filterOptions
+        },
+        function(data) {
+            LogRecord_paginationList_buttons[1].children[0].title = PageNumber
+            LogRecord_paginationList_buttons[1].children[0].innerHTML = PageNumber
+
+            stopLoadingAnimation();
+            if (data.length != 0) {
+                fillLogRecordTable(data);
+            } else {
+
+                document.querySelector('#warningAlertModal_continue').classList.add('d-none')
+                warningAlert('No More Log Records', undefined, () => {
+                    document.querySelector('#warningAlertModal_continue').classList.remove('d-none')
+                    document.querySelector('#warningAlertModal_paragraph').innerHTML = ''
+                });
+
+                if ($(window).width() &lt; '890') {
+                    document.querySelector(`#allLogsListTable #logsListAll`).innerHTML = `
+                        &lt;thead class="text-capitalize font-weight-bold tableHeadYellow">
+                            &lt;th>subtask name&lt;/th>
+                            &lt;th>&lt;/th>
+                            &lt;th>&lt;/th>
+                        &lt;/thead>`;
+                    if (parseInt(LogRecord_paginationList_buttons[1].children[0].title) != 1) {
+                        LogRecord_paginationList_buttons[1].children[0].title = LogRecord_paginationList_buttons[1].children[0].innerHTML = logRecordTab_pageNumer = PageNumber - 1
+                        logRecordTab_pageNumer = logRecordTab_pageNumer - 1
+                        loadLogRecordFirstTime()
+                    } else {
+                        LogRecord_paginationList_buttons[1].children[0].title = LogRecord_paginationList_buttons[1].children[0].innerHTML = logRecordTab_pageNumer = 1
+                    }
+                } else {
+                    document.querySelector(`#allLogsListTable #logsListAll`).innerHTML = `
+                        &lt;thead class="tableHeadYellow">
+                        &lt;tr class="text-center text-capitalize">
+                            &lt;th style="width: 15%">date&lt;/th>
+                            &lt;th style="width: 10%">subtask&lt;/th>
+                            &lt;th style="width: 10%">task&lt;/th>
+                            &lt;th style="width: 2%">hours&lt;/th>
+                            &lt;th style="width: 2%">percentage&lt;/th>
+                            &lt;th style="width: 10%">logger&lt;/th>
+                            &lt;th style="width: 5%">location&lt;/th>
+                        &lt;/tr>
+                    &lt;/thead>`;
+                    if (parseInt(LogRecord_paginationList_buttons[1].children[0].title) != 1) {
+                        LogRecord_paginationList_buttons[1].children[0].title = LogRecord_paginationList_buttons[1].children[0].innerHTML = logRecordTab_pageNumer = PageNumber - 1
+                        logRecordTab_pageNumer = logRecordTab_pageNumer - 1
+                        loadLogRecordFirstTime()
+                    } else {
+                        LogRecord_paginationList_buttons[1].children[0].title = LogRecord_paginationList_buttons[1].children[0].innerHTML = logRecordTab_pageNumer = 1
+                    }
+                }
+
+            }
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+            modalNewTask.classList.add('d-none');
+        }
+    );
+};
+
+/**
+ * fill log record table in two versions (mobile &amp; pc), activate button that view specific task in log record table 
+ * active row to be clickable, so when click on task in log record will open task view
+ * @constructor
+ * @param {Array} allLogsArr - represent all log records requested (max. 10 record per page)
+ */
+function fillLogRecordTable(allLogsArr) {
+    let logsListAll = document.querySelector(`#allLogsListTable #logsListAll`);
+
+    function getVisualName(userID) {
+        var userVisualName;
+        for (let user of usersList) {
+            if (user.userID == userID) {
+                userVisualName = user.visualName;
+                break;
+            };
+        };
+        return userVisualName;
+    };
+
+    function getTaskName(taskID) {
+        var TaskName;
+        for (let task of tasksDataLogRecord) {
+            if (task._id == taskID) {
+                TaskName = task.taskName;
+                break;
+            };
+        };
+        return TaskName;
+    };
+
+    if ($(window).width() &lt; '890') {
+        logsListAll.style.lineHeight = '2'
+        let logProgressTableData = `
+            &lt;thead class="text-capitalize font-weight-bold tableHeadYellow">
+                &lt;th>logger&lt;/th>
+                &lt;th>&lt;/th>
+                &lt;th>&lt;/th>
+            &lt;/thead>`;
+        for (let element of allLogsArr) {
+            logProgressTableData += `
+                &lt;tbody id="logRecords_view_${element.task}">
+                    &lt;tr>
+                        &lt;td style="width:25%;" class="px-2" rowspan="10">${getVisualName(element.logger)}&lt;/td>  
+                    &lt;/tr>
+                    &lt;tr>
+                        &lt;td class="font-weight-bold" style="width:25%;">subTask &lt;/td>
+                        &lt;td>${element.subTask}&lt;/td>
+                    &lt;/tr>
+                    &lt;tr>
+                        &lt;td class="font-weight-bold" style="width:25%;">task &lt;/td>
+                        &lt;td>${getTaskName(element.task)}&lt;/td>
+                    &lt;/tr>
+                    &lt;tr>
+                        &lt;td class="font-weight-bold" style="width:25%;">submitted date &lt;/td>
+                        &lt;td>${(element.dateSubmitted==undefined)?'':element.dateSubmitted}&lt;/td>
+                    &lt;/tr>
+                    &lt;tr>
+                        &lt;td class="font-weight-bold" style="width:25%;"> submit time &lt;/td>
+                        &lt;td>${(new Date(element.date)).toDateString()}, ${(new Date(element.date)).toLocaleTimeString()}&lt;/td>
+                    &lt;/tr>
+                    
+                    &lt;tr>
+                        &lt;td class="font-weight-bold" style="width:25%;">hours &lt;/td>
+                        &lt;td>${element.hours} Hrs&lt;/td>
+                    &lt;/tr>
+                    &lt;tr>
+                        &lt;td class="font-weight-bold" style="width:25%;"> % &lt;/td>
+                        &lt;td>${element.percent}%&lt;/td>
+                    &lt;/tr>
+                    &lt;tr class="shadow">
+                        &lt;td class="font-weight-bold" style="width:25%;"> location &lt;/td>
+                        &lt;td>${(element.location==undefined)?'':element.location}&lt;/td>
+                    &lt;/tr>
+                    
+                &lt;/tbody>
+                `;
+        }
+        logsListAll.innerHTML = logProgressTableData;
+    } else {
+        let logProgressTableData = `
+            &lt;thead class="tableHeadYellow">
+            &lt;tr class="text-center text-capitalize">
+            &lt;th style="width: 15%">submitted date&lt;/th>
+                &lt;th style="width: 15%">submit time&lt;/th>
+                &lt;th style="width: 10%">subtask&lt;/th>
+                &lt;th style="width: 10%">task&lt;/th>
+                &lt;th style="width: 2%">hours&lt;/th>
+                &lt;th style="width: 2%">percentage&lt;/th>
+                &lt;th style="width: 10%">logger&lt;/th>
+                &lt;th style="width: 5%">location&lt;/th>
+            &lt;/tr>
+        &lt;/thead>`;
+
+        for (let element of allLogsArr) {
+            logProgressTableData += `
+            &lt;tbody class="text-center" id="logRecords_view_${element.task}">
+            &lt;tr class="text-capitalize">
+                &lt;td>${(element.dateSubmitted==undefined)?'':element.dateSubmitted}&lt;/td>
+                &lt;td>${(new Date(element.date)).toDateString()}, ${(new Date(element.date)).toLocaleTimeString()}&lt;/td>
+                &lt;td>${element.subTask}&lt;/td>
+                &lt;td>${getTaskName(element.task)}&lt;/td>
+                &lt;td>${element.hours} Hrs&lt;/td>
+                &lt;td>${element.percent}%&lt;/td>
+                &lt;td>${getVisualName(element.logger)}&lt;/td>
+                &lt;td>${(element.location==undefined)?'':element.location}&lt;/td>
+            &lt;/tr>
+        &lt;/tbody>`;
+
+        }
+        logsListAll.innerHTML = logProgressTableData;
+    }
+
+    let taskLogRecordViewButon = document.querySelectorAll('#allLogsListTable #logsListAll [id*="logRecords_view_"]');
+    taskLogRecordViewButon.forEach(viewTaskBtn => {
+        if (specificTaskModal.querySelector('#taskList_specificTask_taskID').value == '') {
+
+            viewTaskBtn.onclick = function(e) {
+
+                let taskID = e.target.parentElement.parentElement.id.split('_')[2];
+                GETspecificTask(taskID)
+            };
+        } else {
+
+            GETspecificTask(specificTaskModal.querySelector('#taskList_specificTask_taskID').value)
+
+        }
+    });
+};</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="clearNewTaskInputs.html">clearNewTaskInputs</a></li><li><a href="clearTaskLogProgressInputs.html">clearTaskLogProgressInputs</a></li><li><a href="deleteSubTaskS.html">deleteSubTaskS</a></li><li><a href="EditTaskModal.html">EditTaskModal</a></li><li><a href="fillEditTaskForm.html">fillEditTaskForm</a></li><li><a href="fillLogRecordTable.html">fillLogRecordTable</a></li><li><a href="fillNewTaskPreData.html">fillNewTaskPreData</a></li><li><a href="fillOutputsOfTaskView.html">fillOutputsOfTaskView</a></li><li><a href="fillSubTasksList.html">fillSubTasksList</a></li><li><a href="fillTasksListTable.html">fillTasksListTable</a></li><li><a href="fillTasksSettingsPreData.html">fillTasksSettingsPreData</a></li><li><a href="GetFilteredData.html">GetFilteredData</a></li><li><a href="GetFilteredDataLogRecord.html">GetFilteredDataLogRecord</a></li><li><a href="getFilterObject.html">getFilterObject</a></li><li><a href="GETspecificTask.html">GETspecificTask</a></li><li><a href="getTasksIDAndName.html">getTasksIDAndName</a></li><li><a href="loadLogRecordFirstTime.html">loadLogRecordFirstTime</a></li><li><a href="loadTasksFirstTime.html">loadTasksFirstTime</a></li><li><a href="retrieveNewTaskInputs.html">retrieveNewTaskInputs</a></li><li><a href="taskList_specificTask_openModalAddSubTask.onclick.html">onclick</a></li></ul><h3>Global</h3><ul><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveTaskLogProgressInputs">retrieveTaskLogProgressInputs</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Feb 25 2021 16:57:54 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

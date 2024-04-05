@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: services/tasks/dbHandler.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: services/tasks/dbHandler.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>let connector = require("./../db/connector");
+var ObjectID = require('mongodb').ObjectID;
+const databaseName = "ERP";
+const collectionName = "tasks";
+const collectionNameAccessibility = "accessibility";
+const collectionNameLogsRecords = "tasks.logs.records";
+const collectionNameSubtasksComments = "tasks.subtasks.comments";
+const collectionNameTaskStates = "tasks.states";
+const flatted = require("flatted"); // for cyclic json objects 
+let helpers = require("./../../utils/helpers"); // for date function.
+
+const SCRIPT_NAME = "\nDB HANDLER TASKS SERVICE";
+
+
+let database;
+
+connector.connectDB(
+    databaseName,
+    (db) => {
+        database = db;
+    },
+    (errMsg) => {
+        database = undefined;
+        console.log(SCRIPT_NAME + ": couldn't retrieve db: " + errMsg);
+    }
+)
+
+/*if (database != undefined) {return;}
+ */
+connector.getDB(
+    databaseName,
+    (recievedDB) => { // success callback
+        database = recievedDB;
+    },
+    (errMsg) => {
+        //console.log(SCRIPT_NAME + ": couldn't retrieve db: " + errMsg);
+        database = undefined;
+    }
+);
+
+exports.applySchema = (data, success, fail) => {
+    let ids = [];
+
+    /*
+    	- IMPLEMENT.
+    	- proposal: simple approach, retrieve all documents -> add subtasks id -> insert them again.
+    */
+
+
+    console.log("updating tasks collection..");
+    // retrieve all tasks
+    database.collection(collectionName).find({}).toArray(postFind);
+
+    function postFind(err, result) {
+        if (err) {
+            fail(err.message);
+            return;
+        }
+        // add subtasks id's
+        console.log("tasks collection fetched..");
+        console.log("assigning ids");
+        let count = 0;
+        for (let i = 0; i &lt; result.length; i++) {
+            if (result[i].hasOwnProperty("preData")) continue;
+            for (let y = 0; y &lt; result[i].taskData.subTasks.length; y++) {
+                result[i].taskData.subTasks[y]['_id'] = new ObjectID();
+                count++;
+            }
+        }
+        console.log(count + " ids assigned");
+        console.log("dropping collection..");
+        database.collection(collectionName).drop({}, (err, result) => {
+            if (err) {
+                console.log("Couldn't drop collection err: " + err.message);
+                fail("err in drop: " + err.message);
+                return;
+            }
+            console.log("collection dropped..");
+            proceedInsert();
+        })
+
+        function proceedInsert() {
+            console.log("inserting updated documents..");
+            database.collection(collectionName).insertMany(result, {}, (err, result) => {
+                if (err) {
+                    console.log("error, couldn't insert, err: " + err.message);
+                    fail("err in insert: " + err.message);
+                    return;
+                }
+                console.log("collection updated successfully");
+                success(JSON.stringify(result));
+            });
+        }
+    }
+
+}
+
+exports.insertTask = (taskData, newConstants, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insertTask: undefined db"); } else {
+        let query = { preData: "TRUE" };
+        let pushContent = {};
+        let hasNewConstants = false;
+        if (newConstants.hasNewProject) {
+            hasNewConstants = true;
+            pushContent["projects"] = taskData.taskData.description.project;
+        }
+        if (newConstants.hasNewCategory) {
+            hasNewConstants = true;
+            pushContent["categories"] = taskData.taskData.description.category;
+        }
+
+        if (hasNewConstants) { // IF THERE IS A NEW TASK CONSTANTS WE INSERT IT THEN WE INSERT THE TASK 
+            // TODO: INSERT THE NEW CONSTANTS IN THE FIRST ROW IN THE TAKSS COLLECTION.
+            let update = { $push: pushContent };
+            database.collection(collectionName).updateOne(
+                query,
+                update,
+                (err, res) => {
+                    if (err) {
+                        console.log(SCRIPT_NAME + ": error while inserting new constant: " + JSON.stringify(err));
+                        fail(err);
+                        return;
+                    } else {
+                        _insertTask();
+                    }
+                }
+            );
+        } else { // THERE IS NO TASK CONSTANTS SO WE INSERT THE TASK DIRECTLY
+            _insertTask();
+        }
+
+        function _insertTask() {
+            //add _id to each subtask.
+            for (let i = 0; i &lt; taskData.taskData.subTasks.length; i++) {
+                taskData.taskData.subTasks[i]["_id"] = new ObjectID();
+            }
+
+            database.collection(collectionName).insertOne(
+                taskData,
+                (err, res) => {
+                    if (err) {
+                        console.log(SCRIPT_NAME + ": error while inserting task: " + JSON.stringify(err));
+                        fail(err);
+                        return;
+                    } else { // ik that throw will end but else here for the future removal of throwing errs
+                        success(res);
+                    }
+                }
+            );
+        }
+    }
+};
+
+
+exports.getTasksPreData = (success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".getTasksPreData: undefined db"); } else {
+        let query = { preData: "TRUE" };
+        database.collection(collectionName).findOne(query, (err, result) => {
+            if (err) { fail(err); return; } else {
+                success(result);
+            }
+        });
+    }
+}
+
+
+// TO RETRIEVE TASKS THAT IS ASSIGNED TO SOMEONE, AS DECIDED: ONLY THE ASSIGNED TO WILL BE ABLE TO LOG PROGRESS.
+exports.getTasksAssignedTo = (data, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".getParticipantTasks: undefined db"); } else {
+
+        function postFind(err, result) {
+            if (err) {
+                console.log(SCRIPT_NAME + ": error while retrieving tasks list assigned to: err: " + JSON.stringify(err));
+                fail(err);
+            } else {
+                success(result);
+            }
+        }
+
+        var userID = String(data);
+        // this query is to get tasks for user as participant and/or assigned to.
+        let query = { "taskData.responsibilities.to": userID };
+        database.collection(collectionName).find(query).sort({ _id: -1 }).toArray(postFind);
+
+    }
+
+}
+
+
+// TO RETRIEVE TASKS LIST FOR USER THAT IS MENTION IN THEM IN ALL: FROM TO PARTICIPANT &amp; OBSERVER
+exports.getTasksListFor = (data, success, fail) => {
+    //console.log(SCRIPT_NAME + " recieved user in a user is in: " + typeof userID);
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".getTasksListFor: undefined db"); } else {
+
+        function postFind(err, result) {
+            if (err) {
+                console.log(SCRIPT_NAME + ": error while retrieving tasks list for: err: " + JSON.stringify(err));
+                fail(err);
+            } else {
+                success(result);
+            }
+        }
+
+        var userID = String(data);
+        // this query is to get tasks for user included in all as from to participant or observer
+        let query = {
+            $or: [
+                { "taskData.responsibilities.to": userID },
+                { "taskData.responsibilities.from": userID },
+                { "taskData.responsibilities.observers": userID },
+                { "taskData.responsibilities.participants": userID },
+            ]
+        }
+
+        database.collection(collectionName).find(query).sort({ _id: -1 }).toArray(postFind);
+
+    }
+}
+
+
+
+// TO INSERT NEW LOG FOR SPECIFIC TASK GIVEN TASKID &amp; LOG DATA
+//	ADDED NEW SUBTASK IS HANDLED HERE.
+exports.insertTaskLogProgress = (logData, logger, success, fail) => {
+    if (database == undefined) { fail("Database undefined");console.log(SCRIPT_NAME + ".inserting new log: undefined db"); } 
+    else {
+        let query = { _id: ObjectID(String(logData.taskID)) };
+        let _id = new ObjectID();
+        let date = (new Date()).toISOString();
+        let formattedLog = {
+            date: logData.date,
+            hours: logData.hours,
+            percentage: logData.percentage,
+            notes: logData.notes,
+            subTask: logData.subTask,
+            location: logData.location,
+            submitDate: String(date),
+            by: String(logger),
+            _id: String(_id)
+        }
+        let update = {
+            $push: {
+                "taskData.logs": formattedLog
+            }
+        };
+        /*if (logData.hasNewSubTask == "TRUE") {
+			// TODO: PUSH SUBTASKS
+			update.$push["taskData.subTasks"] = logData.subTask;
+		}
+*/
+
+
+        /*
+        		database.collection(collectionName).findAndModify(
+        			query,
+        			[],
+        			update,
+        			{new: true},
+        			(err, result) => {
+        				console.log (SCRIPT_NAME + " insertTaskLogProgress: " + JSON.stringify(result) + "\n err: " + "\n query: " + JSON.stringify(finalQuery));
+        			}
+        		)
+        */
+
+
+        database.collection(collectionName).updateOne(
+            query,
+            update,
+            (err, res) => {
+                if (err) {
+                    console.log(SCRIPT_NAME + ": error while inserting new log: " + JSON.stringify(err));
+                    fail(err);
+                    return;
+                } else {
+                    if (res.result["nModified"] !== 1) {
+                        fail("NO_CHANGE");
+                        return;
+                    }
+                    success(formattedLog);
+                }
+            }
+        );
+
+    }
+
+};
+
+
+
+
+// INSERT SUBTASK IN SUBTASKS ARRAY IN SPECIFIC TASK WITH GIVEN TASK ID &amp; SUB-TASK DATA
+exports.insertSubTask = (taskID, subTask, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".inserting new subtask: undefined db"); } else {
+        let query = { _id: ObjectID(String(taskID)) };
+        subTask["_id"] = new ObjectID();
+        let update = {
+            $push: { "taskData.subTasks": subTask }
+        };
+        database.collection(collectionName).updateOne(
+            query,
+            update,
+            (err, result) => {
+                if (err) {
+                    console.log(SCRIPT_NAME + ": error while inserting new subtask " + JSON.stringify(err));
+                    fail(err);
+                } else {
+                    success(result);
+                }
+            }
+        );
+    }
+}
+
+
+
+
+
+
+exports.getSubTasks = (taskID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".get subtasks: undefined db"); } else {
+        let query = { _id: ObjectID(taskID) };
+        let projection = { projection: { "taskData.subTasks": 1, _id: 0 } };
+
+        function postFind(err, result) {
+            if (err) {
+                console.log("Error while retrieving subtask of taskID: " + taskID);
+                fail(JSON.stringify(err));
+            } else {
+                success(result);
+            }
+        }
+
+        database.collection(collectionName).find(query, projection).sort({ _id: -1 }).toArray(postFind);
+    }
+}
+
+
+
+
+
+exports.getLogProgress = (taskID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".get log progress: undefined db"); } else {
+        let query = { _id: ObjectID(taskID) };
+        let projection = { projection: { "taskData.logs": 1, _id: 0 } };
+
+        function postFind(err, result) {
+            if (err) {
+                console.log("Error while retrieving task log progress of taskID: " + JSON.stringify(taskID));
+                fail(err);
+            } else {
+                success(result);
+            }
+        }
+
+        database.collection(collectionName).find(query, projection).sort({ _id: -1 }).toArray(postFind);
+    }
+
+}
+
+
+
+exports.removeSubTask = (taskID, name, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".get log progress: undefined db"); } else {
+        let query = { _id: ObjectID(taskID) }
+        let update = {
+            $pull: {
+                "taskData.subTasks": { name: String(name) }
+            }
+        }
+
+        function postUpdate(err, result) {
+            if (err) {
+                console.log(SCRIPT_NAME + " removeSubTask postFind err: " + JSON.stringify(err));
+                fail(err);
+            } else {
+                success(result.result.nModified);
+            }
+        }
+
+        database.collection(collectionName).updateOne(query, update, postUpdate);
+    }
+
+}
+
+
+
+// state: {name: "string", submitter: "userID", date: "string"}
+exports.insertTaskState = (taskID, state, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insert task state: undefined db"); } else {
+        let query = { _id: ObjectID(taskID) };
+        let update = {
+            $push: {
+                "taskData.statesLog": state
+            }
+        }
+    }
+}
+
+
+
+
+// task own property (first level) 'state' update to the current last submitted state
+exports.updateTaskCurrentState = (taskID, name, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insert task state: undefined db"); } else {
+        let query = { _id: ObjectID(taskID) };
+        let update = {
+            $set: {
+                state: name
+            }
+        };
+
+        function postUpdate(err, result) {
+            if (err) {
+                console.log(SCRIPT_NAME + " updateTaskCurrentState postUpdate err: " + JSON.stringify(err));
+                fail(err);
+            } else {
+                success(result);
+            }
+        }
+
+        database.collection(collectionName).updateOne(query, update, postUpdate);
+    }
+
+}
+
+
+
+
+// returns states log array sorted 
+exports.getTaskStatesLog = (taskID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insert task state: undefined db"); } else {
+        let query = { _id: ObjectID(String(taskID)) };
+        let projection = {
+            "taskData.statesLog": 1,
+            _id: 0
+        }
+
+        function postFind(err, result) {
+            if (err) {
+                console.log(SCRIPT_NAME + " getTaskStatesLog postFind err: " + JSON.stringify(err));
+                fail(err);
+            } else {
+                success(result);
+            }
+        }
+
+        database.collection(collectionName).find(query, projection).sort({ date: -1 }).toArray(postFind);
+    }
+}
+
+
+// require taskNewData: raw taskData (not taskData. but .), what is inside taskData
+exports.editTask = (taskID, taskNewData, success, fail) => {
+    //TODO: implement incrementing $set in query depending on the taskNewData obj
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".edit task: undefined db"); } else {
+        let query = { _id: ObjectID(String(taskID)) };
+
+        let update = {
+            $set: {
+                "taskData.description": taskNewData.description,
+                "taskData.time": taskNewData.time,
+                "taskData.responsibilities": taskNewData.responsibilities,
+                "taskData.audition": taskNewData.audition
+            }
+        };
+
+        function postUpdate(err, result) {
+            if (err) {
+                fail(err);
+            } else { // TODO: check if it's really updated.
+                if (result.result["nModified"] !== 1) {
+                    fail("NO_CHANGE");
+                    return;
+                }
+                success(result);
+            }
+        }
+        database.collection(collectionName).updateOne(query, update, postUpdate);
+    }
+}
+
+
+// gets taskID and retrieve full task data
+exports.task = (taskID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".task full data: undefined db"); } else {
+        let query = { _id: ObjectID(String(taskID)) };
+
+        function postFind(err, result) {
+            if (err) {
+                fail(err);
+                return;
+            }
+            success(result);
+        }
+
+        database.collection(collectionName).findOne(query, postFind);
+    }
+}
+
+
+
+exports.filter = (filterObject, userID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".filter tasks data: undefined db"); } else {
+        let query = { $and: [] };
+
+        // user included "in" to only show tasks included in 
+        query.$and.push({
+            $or: [
+                { "taskData.responsibilities.to": String(userID) },
+                { "taskData.responsibilities.from": String(userID) },
+                { "taskData.responsibilities.participants": String(userID) },
+                { "taskData.responsibilities.observers": String(userID) }
+            ]
+        });
+
+        if (!filterObject.hasOwnProperty("query")) filterObject.query = {};
+        // assigned to
+        if (filterObject.query.hasOwnProperty("to")) {
+            query.$and.push({ "taskData.responsibilities.to": { $eq: String(filterObject.query.to) } });
+
+        }
+        // project
+        if (filterObject.query.hasOwnProperty("project")) {
+            query.$and.push({
+                "taskData.description.project": String(filterObject.query.project)
+            });
+        }
+        // overdue
+        if (filterObject.query.hasOwnProperty("overdue")) { // TODO: 
+            query.$and.push({
+                "taskData.time.deadline": { $lt: String(helpers.getBasicISODate()) }
+            });
+        }
+        // estimation
+        if (filterObject.query.hasOwnProperty("estimation")) {
+            if (filterObject.query.estimation.hasOwnProperty("future")) {
+                query.$and.push({
+                    "taskData.time.estimation.start": { $gt: String(helpers.getBasicISODate()) }
+                });
+            } else if (filterObject.query.estimation.hasOwnProperty("overdue")) {
+                query.$and.push({
+                    "taskData.time.estimation.end": { $lt: String(helpers.getBasicISODate()) }
+                })
+            }
+        }
+
+
+        // TODO ************************** IMPLEMENT 
+        // OR DECIDE NOT TO 
+        // current month
+        /*if (filterObject.query.hasOwnProperty(currentMonth)) {
+        	let firstDay = helpers.getMonthFirstDay();
+        	let lastDay = helpers.getMonthLastDay();
+        }*/
+
+        if (query.$and.length == 0) {
+            delete query.$and;
+        }
+
+        //TODO: pageNumber and pageSize.
+        let skip = (filterObject.pageNumber - 1) * filterObject.pageSize; // -1 to make page 1 be 0
+        let limit = filterObject.pageSize;
+
+        function postFind(err, result) {
+            if (err) {
+                console.log(SCRIPT_NAME + ", filter.postFind: err:" + JSON.stringify(err));
+                fail(err);
+                return;
+            }
+            success(result);
+        }
+
+        database.collection(collectionName)
+            .find(query)
+            .sort({ _id: -1 })
+            .skip(skip)
+            .limit(limit)
+            .toArray(postFind);
+
+    }
+
+}
+
+
+
+
+/*
+	check if userID exist in users array in document.name:"tasks.logs.records" in db.accessibility 
+*/
+
+exports.tasksLogsRecordsAccess = (userID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".tasksLogsRecordsAccess: undefined db"); } else {
+        // document for logs records accessibility
+        let query = {
+                name: "tasks.logs.records",
+                users: { id: String(userID) }
+            }
+            // user 
+        let projection = {
+            _id: 0,
+            users: { $elemMatch: { id: String(userID) } }
+        }
+
+        function postFind(err, result) {
+            if (err) {
+                fail(err);
+                console.log(SCRIPT_NAME + " records access err: " + JSON.stringify(err));
+                return;
+            }
+
+
+            let hasAccess = false;
+            if (result) {
+                if (result.hasOwnProperty("users")) {
+                    if (Array.isArray(result.users)) {
+                        if (result.users.length != 0) {
+                            for (let user of result.users) {
+                                if (user.id == userID) { // user found in array of can access users
+                                    hasAccess = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            success({
+                hasAccess: hasAccess
+            });
+        }
+
+        database.collection(collectionNameAccessibility).findOne(query, projection, postFind);
+    }
+
+}
+
+
+
+
+/*
+	insert log record in collection named 'tasks.logs.records'
+
+*/
+
+exports.insertTaskLogProgressRecord = (logRecord, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insertTaskLogProgressRecord: undefined db"); } else {
+        database.collection(collectionNameLogsRecords).insertOne(
+            logRecord,
+            (err, result) => {
+                if (err) {
+                    console.log(SCRIPT_NAME + " error while inserting log record: " + JSON.stringify(err));
+                    fail(err);
+                    return;
+                }
+                success();
+            }
+        )
+    }
+}
+
+
+
+
+
+exports.insertLocationIfNew = (location, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insertLocationIfNew: undefined db"); } else {
+
+        let query = {
+            preData: "TRUE"
+        }
+        let update = {
+            $addToSet: { locations: String(location) }
+        }
+        if (location.length == 0) {
+            success();
+            return;
+        }
+
+        database.collection(collectionName).updateOne(query, update, (err, result) => {
+            if (err) {
+                console.log(SCRIPT_NAME + "insertLocationIfNew err: " + JSON.stringify(err));
+                fail(err);
+                return;
+            }
+            success();
+        });
+    }
+}
+
+
+
+
+
+exports.tasksLogsRecordsFilter = (filterObject, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".tasksLogsRecordsFilter: undefined db"); } else {
+
+
+        //TODO: pageNumber and pageSize.
+        let skip = (filterObject.pageNumber - 1) * filterObject.pageSize; // -1 to make page 1 be 0
+        let limit = filterObject.pageSize;
+
+        function postFind(err, result) {
+            if (err) {
+                console.log(SCRIPT_NAME + ", tasksLogsRecordsFilter postFind err: " + JSON.stringify(err));
+                fail(err);
+                return;
+            }
+            success(result);
+        }
+
+        database.collection(collectionNameLogsRecords)
+            .find({})
+            .sort({ _id: -1 })
+            .skip(skip)
+            .limit(limit)
+            .toArray(postFind);
+
+
+    }
+
+}
+
+
+
+exports.tasksBasicListAccess = (userID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".tasksBasicListAccess: undefined db"); } else {
+        // document for logs records accessibility
+        let query = {
+                name: "tasks.list.basic",
+                users: { id: String(userID) }
+            }
+            // user 
+        let projection = {
+            _id: 0,
+            users: { $elemMatch: { id: String(userID) } }
+        }
+
+        function postFind(err, result) {
+            if (err) {
+                fail(err);
+                console.log(SCRIPT_NAME + " Basic list access access err: " + JSON.stringify(err));
+                return;
+            }
+            let hasAccess = false;
+            if (result) {
+                if (result.hasOwnProperty("users")) {
+                    if (Array.isArray(result.users)) {
+                        if (result.users.length != 0) {
+                            for (let user of result.users) {
+                                if (user.id == userID) { // user found in array of can access users
+                                    hasAccess = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            success({
+                hasAccess: hasAccess
+            })
+        }
+
+        database.collection(collectionNameAccessibility).findOne(query, projection, postFind);
+    }
+}
+
+
+
+
+
+exports.tasksBasic = (userID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".tasksBasic: undefined db"); } else {
+        // TODO: implement serving tasks as is from data base but with projection &amp; for this specific user included only
+        userID = String(userID);
+        let query = {
+            $or: [
+                { "taskData.responsibilities.to": userID },
+                { "taskData.responsibilities.from": userID },
+                { "taskData.responsibilities.observers": userID },
+                { "taskData.responsibilities.participants": userID },
+            ]
+        }
+        let projection = {
+            "taskData.description.name": 1,
+        }
+
+        function postFind(err, result) {
+            try {
+                if (err) {
+                    fail(err.message);
+                } else {
+                    success(result);
+                }
+            } catch (err) {
+                fail(err.message);
+            }
+        }
+
+        database.collection(collectionName).find(query).project(projection).toArray(postFind);
+
+
+    }
+}
+
+
+
+
+
+exports.taskAccess = (taskID, userID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".taskAccess: undefined db"); } else {
+
+        if (!ObjectID.isValid(taskID)) {
+            fail({
+                message: "taskID not valid: " + taskID
+            });
+            return;
+        }
+
+        let query = { $and: [] };
+        query.$and.push({ _id: ObjectID(taskID) })
+        query.$and.push({
+            $or: [
+                { "taskData.responsibilities.to": String(userID) },
+                { "taskData.responsibilities.from": String(userID) },
+                { "taskData.responsibilities.observers": String(userID) },
+                { "taskData.responsibilities.participants": String(userID) }
+            ]
+        });
+
+        let options = {
+            projection: { _id: 1 }
+        }
+
+        function postFind(err, result) {
+            if (err) {
+                console.log(SCRIPT_NAME + " taskAccess postFind error: " + err.message);
+                fail(err.message);
+            }
+            if (result) {
+                if (result.hasOwnProperty("_id")) {
+                    if (ObjectID(result._id).equals(taskID)) { // equal then it's 100% has acces.
+                        success({ hasAccess: true });
+                        return;
+                    }
+                }
+            }
+            success({ hasAccess: false });
+        }
+
+        database.collection(collectionName).findOne(query, options, postFind);
+
+
+    }
+}
+
+
+exports.comments = (subtaskID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".comments: undefined db"); } else {
+
+        if (!ObjectID.isValid(subtaskID)) {
+            fail(
+                "invalid subtaskID: " + subtaskID
+            );
+            return;
+        }
+
+        let query = { subtask: String(subtaskID) }
+
+        function postFind(err, result) {
+            if (err) {
+                fail(
+                    "db err: " + err.message
+                );
+                return;
+            }
+
+            success(result);
+
+        }
+
+
+        database.collection(collectionNameSubtasksComments).findOne(query, {}, postFind);
+
+    }
+
+}
+
+/**
+ *	taskContainsSubtask - 
+ *	check if subtask is inside task by IDs
+ *	@param {string} taskID 
+ *	@param {string} subtaskID  
+ * 	@param {callback} next - on success gives {hasSubtask: true/false} on fail gives error message
+ */
+exports.taskContainsSubtask = (taskID, subtaskID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".taskContainsSubtask: undefined db"); } else {
+        if (!ObjectID.isValid(taskID) || !ObjectID.isValid(subtaskID)) {
+            fail("invalid ID/s");
+            return;
+        }
+        let query = {
+            _id: ObjectID(String(taskID)),
+            "taskData.subTasks._id": ObjectID(String(subtaskID))
+        };
+        console.log(query);
+        database.collection(collectionName).findOne(query, (err, result) => {
+            if (err) {
+                fail(err.message);
+                return;
+            }
+            if (result == null) {
+                success({ hasSubtask: false });
+                return;
+            }
+            if (result.hasOwnProperty("taskData")) { // using hasOwnProperty to check if it returns result or not
+                success({ hasSubtask: true });
+            } else {
+                success({ hasSubtask: false });
+            }
+        })
+    }
+}
+
+
+
+/**
+ *	insertComment -
+ *	@param {Object} commentData - {taskID, subtaskID, comment}
+ *	@param {userID} userID - user connected.
+ */
+exports.insertComment = (commentData, userID, success, fail) => {
+    if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insertComment: undefined db"); } else {
+        if (!ObjectID.isValid(commentData.taskID) || !ObjectID.isValid(commentData.subtaskID)) {
+            fail(
+                "invalid ID/s"
+            );
+            return;
+        }
+
+        // push and if nModified is zero then create new document for this subtask.
+        let query = {
+            subtask: String(commentData.subtaskID),
+        }
+
+        let commentID = new ObjectID();
+        let comment = {
+            _id: commentID,
+            by: String(userID),
+            val: String(commentData.comment)
+        }
+
+        let update = {
+            $push: {
+                comments: comment
+            }
+        }
+
+        database.collection(collectionNameSubtasksComments).updateOne(
+            query,
+            update,
+            (err, result) => {
+                if (err) {
+                    console.log(SCRIPT_NAME + ": error while inserting new comment: " + err.message);
+                    fail(err.message);
+                } else {
+                    if (result.result["nModified"] !== 1) {
+                        insertNewDocument();
+                        return;
+                    }
+                    success();
+                }
+            }
+        )
+
+        function insertNewDocument() {
+            // TODO: INSERT DOCUMENT 
+            let commentsDocument = {
+                subtask: String(commentData.subtaskID),
+                task: String(commentData.taskID),
+                comments: [
+                    comment
+                ]
+            }
+            database.collection(collectionNameSubtasksComments).insertOne(
+                commentsDocument,
+                (err, result) => {
+                    if (err) {
+                        console.log(SCRIPT_NAME + ": error while inserting comments document: " + err.message);
+                        fail(err.message);
+                        return;
+                    }
+                    if (result['insertedCount'] !== 1) {
+                        fail("Error inserting new subtask comments: insertedCount not equal 1: " + JSON.stringify(result));
+                        return;
+                    }
+                    // here the document has been inserted.
+                    success();
+                }
+            )
+        }
+
+    }
+}
+
+
+
+/**
+ * [statesPreData - load states constants ex: canceled, postponed]
+ * @param  {callback} success - gives: [{_id, val}]
+ * @param  {callback} fail    [description]
+ */
+exports.statesPreData = (success, fail) => {
+	if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".statesPreData: undefined db"); } else {
+
+		let query = {
+			preData: {$exists: true}
+		};
+
+		database.collection(collectionNameTaskStates).findOne(query, (err, result) => {
+			if (err) {
+				console.log (SCRIPT_NAME + ": db err statesPreData: " + err.message);
+				fail(err.message);
+				return;
+			}
+
+			success(result);
+		})
+	}
+}
+
+
+/**
+ * to insert new state in the database, first attempt to update, 
+ * no modification if a document for this task doesn't exist, if so a new document is created.
+ * collection schema: document:{
+ *			_id,
+ *			task: "taskID string",
+ *			states: [
+ *				{	
+ *					_id: "ObjectID to store time submitted",
+ *					by: "userID string",
+ *					state: "stateID string",
+ *					time: "iso date time",
+ *					notes: ""
+ *				}, ..
+ *			]
+ *		}
+ * @param  {object} stateData [{task, state, time, by, notes}]
+ * @param  {callback} success   []
+ * @param  {callback} fail      []
+ */
+exports.insertNewState = (stateData, success, fail) => {
+	if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insertNewState: undefined db"); } else {
+
+        let query = {
+        	task: String(stateData.task)
+        }
+
+        let state = {
+        	_id: helpers.changeTimeObjectID (stateData.time, new ObjectID().toHexString()), // to create new objectid with different time
+        	state: stateData.state,
+        	by: stateData.by,
+        	notes: stateData.notes
+        }
+
+        let update = {
+        	$push: {"states": state }
+        }
+
+        database.collection(collectionNameTaskStates).updateOne(
+        	query,
+        	update,
+        	(err, result) => {
+        		if (err) {
+                    console.log(SCRIPT_NAME + ": error while inserting new state: " + err.message);
+                    fail(err.message);
+                } else {
+                    if (result.result["nModified"] !== 1) {
+                        insertNewDocument();
+                        return;
+                    }
+                    success();
+                }
+        	}
+        )
+
+
+        
+        function insertNewDocument() {
+
+        	let taskStatesDocument = {
+        		task: stateData.task,
+        		states: [state]
+        	}
+
+        	database.collection(collectionNameTaskStates).insertOne(
+        		taskStatesDocument,
+        		(err, result) => {
+                    if (err) {
+                        console.log(SCRIPT_NAME + ": error while inserting comments document: " + err.message);
+                        fail(err.message);
+                        return;
+                    }
+                    if (result['insertedCount'] !== 1) {
+                        fail("Error inserting new task states document: insertedCount not equal 1: " + JSON.stringify(result));
+                        return;
+                    }
+                    // here the document has been inserted.
+                    success();
+                }
+        	)
+        }
+
+    }
+}
+
+
+
+
+exports.getTaskStates = (taskID, success, fail) => {
+	if (database == undefined) { fail("Database undefined");
+        console.log(SCRIPT_NAME + ".insertNewState: undefined db"); } else {
+
+        let query = {
+        	task: String(taskID)
+        }
+
+        database.collection(collectionNameTaskStates).findOne(
+        	query, 
+        	{},
+        	(err, result) => {
+	        	if (err) {
+	        		console.log (SCRIPT_NAME + "getTaskStates error " + err.message);
+	        		fail(err.message);
+	        		return;
+	        	}
+	        	success (result);
+        });
+
+    }	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: frontEnd/tasks/logProgress.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: frontEnd/tasks/logProgress.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>//console.log('log here');
+let selectedTasksID = "";
+let subtaskValueInLogProgressSelect = '';
+
+let logProgress_button_submit = document.querySelector('#logProgress_button_submit');
+// /**
+//  * submit log form , but before submit, check if any input in form is empty or not, will show notify msg, if not,
+//  *  will submit data by calling submitTaskLogProgress(),
+//  * and after submit will keep selected subtask selected
+//  * @constructor
+//  */
+logProgress_button_submit.onclick = function(e) {
+    e.preventDefault();
+    let LogEnteredPercent = document.querySelector('#logProgress_input_percentage').value
+    let logProgress_input_date = document.querySelector('#logProgress_input_date').value
+    let logProgress_select_subtask = document.querySelector('#logProgress_select_subtask').value
+    let logProgress_select_location = document.querySelector('#logProgress_select_location').value
+    let logProgress_input_loggedHours = document.querySelector('#logProgress_input_loggedHours').value
+
+
+
+    if (logProgress_input_date == '' || logProgress_select_subtask == '' ||
+        logProgress_select_location == '' || logProgress_input_loggedHours == '' || LogEnteredPercent == '' ||
+        parseInt(LogEnteredPercent) > (100 - parseInt(document.querySelector('#logProgressForm_subtaskState').getAttribute('data-subtaskState')))
+    ) {
+        notifyResult(false, `${
+            (logProgress_input_date =='')?"Enter Date":(logProgress_select_subtask =='')?'Select subTask':
+            (logProgress_select_location =='')?"Select or Add Location":(logProgress_input_loggedHours =='')?"Enter Logged Hours":
+            (LogEnteredPercent=='')?'Enter Percentage':'Percentage should not exceed as total 100%'}`)
+    } else {
+        subtaskValueInLogProgressSelect = retrieveTaskLogProgressInputs().subTask
+            /**
+             * log object will be sent to this function
+             * @constructor
+             */
+        submitTaskLogProgress();
+        if (document.querySelector('#notificationModal').classList.contains('d-none')) {
+            loadTasksFirstTime();
+            document.querySelector('#logProgressForm_subtaskState').innerHTML = `Progress: ${(parseInt(document.querySelector('#logProgressForm_subtaskState').getAttribute('data-subtaskState')) + parseInt(retrieveTaskLogProgressInputs().percentage))}%`
+            GETspecificTask(specificTaskModal.querySelector('#taskList_specificTask_taskID').value)
+        }
+        $("#logProgress_select_subtask").selectpicker('val', subtaskValueInLogProgressSelect)
+    }
+};
+/**
+ * Represents a task.
+ * @param {object} specificTask - get object of clicked task
+ * @param {string} selectedTasksID - store task id in variable to
+ */
+function fillTaskLogProgressData(specificTask) {
+    if (subtaskValueInLogProgressSelect == '') {
+        selectedTasksID = specificTask._id;
+        let subtasksLogProgress = '&lt;option>&lt;/option>';
+        for (let element of specificTask.taskData.subTasks) {
+            subtasksLogProgress += `&lt;option>${element.name.trim()}&lt;/option>`;
+
+        };
+        document.querySelector('#logProgress_select_subtask').innerHTML = subtasksLogProgress;
+        $("#logProgress_select_subtask").selectpicker('refresh');
+    };
+    //log locations list
+    runLoadingAnimation('Loading ... .')
+    get(
+        IDENTIFIERS.TASKS.NEW_TASK_PRE_DATA, {},
+        function(preData) {
+            stopLoadingAnimation();
+            fillNewTaskPreData(preData);
+
+            let elementLocations = '&lt;option>&lt;/option>'
+            for (let element of preData.locations) {
+                elementLocations += `&lt;option>${element}&lt;/option> `
+            }
+            document.querySelector('#logProgress_select_location').innerHTML = elementLocations;
+            $("#logProgress_select_location").selectpicker('refresh');
+
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+            modalNewTask.classList.add('d-none');
+        }
+    );
+    /* let taskStatesLogProgress = document.querySelector('#logProgress_select_taskState')
+    let statesLogProgress = '&lt;option>&lt;/option>';
+    for (let element of specificTask.taskData.states) {
+        statesLogProgress += `&lt;option>${element}&lt;/option>`;
+    };
+    taskStatesLogProgress.innerHTML = statesLogProgress;
+    $(taskStatesLogProgress).selectpicker('refresh');
+ */
+    fillTableOfLogProgress('logProgress', specificTask);
+};
+
+/**
+ * Represents a log progress for subtask.
+ * @param {object} dataObj - get fields have values entered by user
+ * @param {object} logObj - log object that will be sent to server
+ */
+function retrieveTaskLogProgressInputs() {
+    let dataObj = getIDsAndValuesFormAnyForm("logProgress_form");
+
+    let logObj = {
+        taskID: selectedTasksID,
+        date: dataObj.logProgress_input_date,
+        hours: dataObj.logProgress_input_loggedHours,
+        percentage: dataObj.logProgress_input_percentage,
+        notes: dataObj.logProgress_input_notes,
+        subTask: dataObj.logProgress_select_subtask.trim(),
+        location: dataObj.logProgress_select_location.trim()
+    };
+
+    return logObj;
+};</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="clearNewTaskInputs.html">clearNewTaskInputs</a></li><li><a href="clearTaskLogProgressInputs.html">clearTaskLogProgressInputs</a></li><li><a href="deleteSubTaskS.html">deleteSubTaskS</a></li><li><a href="EditTaskModal.html">EditTaskModal</a></li><li><a href="fillEditTaskForm.html">fillEditTaskForm</a></li><li><a href="fillLogRecordTable.html">fillLogRecordTable</a></li><li><a href="fillNewTaskPreData.html">fillNewTaskPreData</a></li><li><a href="fillOutputsOfTaskView.html">fillOutputsOfTaskView</a></li><li><a href="fillSubTasksList.html">fillSubTasksList</a></li><li><a href="fillTasksListTable.html">fillTasksListTable</a></li><li><a href="fillTasksSettingsPreData.html">fillTasksSettingsPreData</a></li><li><a href="GetFilteredData.html">GetFilteredData</a></li><li><a href="GetFilteredDataLogRecord.html">GetFilteredDataLogRecord</a></li><li><a href="getFilterObject.html">getFilterObject</a></li><li><a href="GETspecificTask.html">GETspecificTask</a></li><li><a href="getTasksIDAndName.html">getTasksIDAndName</a></li><li><a href="loadLogRecordFirstTime.html">loadLogRecordFirstTime</a></li><li><a href="loadTasksFirstTime.html">loadTasksFirstTime</a></li><li><a href="retrieveNewTaskInputs.html">retrieveNewTaskInputs</a></li><li><a href="taskList_specificTask_openModalAddSubTask.onclick.html">onclick</a></li></ul><h3>Global</h3><ul><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveTaskLogProgressInputs">retrieveTaskLogProgressInputs</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Feb 25 2021 16:57:54 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

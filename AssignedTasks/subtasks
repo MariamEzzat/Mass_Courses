@@ -1,0 +1,34 @@
+subTasks FrontEnd
+
+Creating initial front end views and funcions:
+	2 input forms in: NewTask, TaskView
+	
+NewTask:
+	New Card (Planned SubTasks)
+	Inputs: (SubTask Name, est. hours, add button)
+	View: Inline inputs form above subtasks list
+		subtasks list item: (name, hours, type="planned", remove button)
+
+	function: a list of subtasks inside the object sent by retrieveNewTaskInputs();
+		subTasks: [{name, hours, type:"Planned"},..]
+	
+
+TaskView (tasksList): 
+	Modal opened on click button in task view
+	
+	inputs: (subTask name, est. hours, type:"'Un Planned'/'Bug Fixing'", add button)
+	
+	view: Inline inputs form above subtasks list
+		subtasks list item: (name, hours, type, remove button)
+	
+	function: 
+		subtasks will be sent inside taskData same as tasklist preData
+		additional functions: 
+			add: call addSubTask(subTask) subTask:{taskID, name, hours, type}
+			remove: call removeSubTask(subTask) subTask: {taskID, name}
+			refresh list: a function to be called: fillSubTasksList(subTasks) subTasks: [{name, hours, type}, ..]
+			fillSubTasksList(subTasks):
+				called to remove all subtasks in the list and fill it again by the given subTasks.
+
+	
+

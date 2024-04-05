@@ -1,0 +1,36 @@
+States log:
+	Each task will have states like ( start, pause , finished, reviewed, tested, ..), these states will be changed by the user the task assigned to.
+	User can change task state in log progress.
+	Each task will have a list of its states
+
+
+Log Progress tab:
+	Small form alongside Create New Log form to add a state for the task.
+
+	Table that shows the list of states.
+
+Tasks List tab: 
+	Same as log progress table.
+
+
+Data: 
+	The same JSON sent to fillTaskLogProgressData(taskData), but a states array is added
+
+	taskData.taskData.states: ["state1", "state2", ..]
+
+	taskData.taskData.stateLogs: [
+		{
+			name: "stateName",
+			submitter: "userID",
+			date: "dateString"
+		}, ..
+	]
+
+	
+Functions: 
+	States names list will be given in the same taskData json to fillTaskLogProgressData(taskData)
+
+	New function call ( submitNewStateLogProgress(taskID, stateName) ) where stateName is a string of the selected state.
+
+
+

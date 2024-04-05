@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/js/frontEnd/tasks/taskList.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/js/frontEnd/tasks/taskList.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>let subTasksParentID;
+let tasksList_pageNumer = 1;
+let taskListObjectsAndUsers;
+let allLogsArr = [];
+let LogProgress = document.querySelector('#logProgress');
+let usersList;
+let specificTaskModal = document.querySelector('#taskList_specificTask');
+let hasAccessToLogRecord = false;
+let logProgressForSpecificSubTask;
+let stateList;
+/**
+ * get tasks list by get function if success , will fill table of tasks list (max. 10 record per page),
+ *  and check if user has access to see log record table or not 
+ * @function loadTasksFirstTime
+ */
+function loadTasksFirstTime() {
+    let allLogsListTable = document.querySelector('#allLogsListTable');
+    runLoadingAnimation('Loading ... .')
+    let filterOptions = removeEmptiesObjInsideObj(getFilterObject());
+
+    if (Object.keys(filterOptions).length === 0) {
+        get(
+            IDENTIFIERS.TASKS.FILTER, {
+                pageNumber: tasksList_pageNumer,
+                pageSize: 10,
+            },
+            function(data) {
+                stopLoadingAnimation();
+                fillTasksListTable(data);
+                usersList = data.users
+                taskListObjectsAndUsers = data;
+            },
+            function(data) {
+                stopLoadingAnimation();
+                console.log(data.errMsg);
+                notifyResult(false, data.userMsg);
+            }
+        );
+    } else {
+        GetFilteredData(filterOptions, tasksList_pageNumer)
+    }
+
+
+    get(
+        IDENTIFIERS.TASKS.TASKS_LOGS_RECORDS.ACCESSIBILITY, {},
+        function(result) {
+            stopLoadingAnimation();
+            if (result.accessibility.hasAccess === false) {
+                allLogsListTable.classList.add('d-none')
+            } else {
+                allLogsListTable.classList.remove('d-none')
+                hasAccessToLogRecord = true
+                loadLogRecordFirstTime()
+            }
+        },
+        function(data) {
+            console.log(data.errMsg);
+        }
+    );
+
+};
+
+/**
+ * get selected task by get function and if user edited task and remove himself from it so when submit edit will check 
+ * if he has access to this task ,if not,will close task view and load tasks list if yes will keep task view opened
+ * @function GETspecificTask
+ */
+function GETspecificTask(id) {
+    runLoadingAnimation('Loading ... .')
+
+    function getStateName(stateID) {
+        var stateName;
+
+        for (let state of stateList) {
+            if (state._id == stateID) {
+                stateName = state.state;
+                break;
+            };
+        };
+        return stateName;
+    };
+    get(
+        IDENTIFIERS.TASKS.TASK, {
+            taskID: id
+        },
+        function(data) {
+            stopLoadingAnimation();
+
+            if (data.taskData.hasAccess == false) {
+                document.querySelector('#warningAlertModal_continue').classList.add('d-none')
+
+                warningAlert("You Don't Have Permission To View This Task Anymore", undefined, () => {
+                    document.querySelector('#warningAlertModal_continue').classList.remove('d-none')
+                    specificTask_close.click();
+                })
+            } else {
+                fillOutputsOfTaskView(data, data.taskData._id);
+                get(IDENTIFIERS.TASKS.STATES.TASK_STATES, { taskID: id },
+                    function(X) {
+                        if (X.length > 0) {
+                            let lastState = getStateName(X[X.length - 1]._id)
+
+                            specificTaskModal.querySelector('#specificTask_output_stateTXT').innerHTML = lastState
+
+                        } else {
+                            specificTaskModal.querySelector('#specificTask_output_stateTXT').innerHTML = ''
+
+                        }
+                    },
+                    function(data) {
+
+                        console.log(data.errMsg);
+                        notifyResult(false, data.userMsg);
+                    }
+                );
+
+
+            }
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+        }
+    );
+};
+
+/**
+ * fill tasks table in two versions (mobile &amp; pc), call get function to fill project &amp; users lists,
+ *activate button that view specific task
+ * @function fillTasksListTable
+ * @param {object} tasksList - represent object that contain users list and tasks list
+ */
+function fillTasksListTable(tasksList) {
+    let taskListTable = document.querySelector('#taskListTable');
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+
+    today = `${yyyy}-${mm}-${dd}`
+
+    function getVisualName(userID) {
+        var userVisualName;
+        for (let user of tasksList.users) {
+            if (user.userID == userID) {
+                userVisualName = user.visualName;
+                break;
+            };
+        };
+        return userVisualName;
+    };
+
+    if ($(window).width() &lt; '890') {
+        taskListTable.style.lineHeight = '2'
+        let taskListTableRow = `
+                &lt;thead class="text-capitalize font-weight-bold tableHeadYellow">
+                &lt;th>task name&lt;/th>
+                &lt;td>&lt;/td>
+                &lt;td>&lt;/td>
+            &lt;/thead>
+         `;
+
+
+        for (let eachTask of tasksList.tasks) {
+
+            let progress = calculateState(eachTask.taskData.logs, eachTask.taskData.subTasks);
+            taskListTableRow +=
+                `
+            &lt;tbody class="text-capitalize" id="taskList_view_${eachTask._id}" style="${(parseInt(progress.percentage) == 100)?'opacity:0.6;':''}">
+            &lt;tr data-taskList-TaskID="${eachTask._id}" class="text-center">
+                &lt;td data-taskList-TaskID="${eachTask._id}" style="width:25%;" rowspan="7">${eachTask.taskData.description.name.trim()}&lt;/td>  
+            &lt;/tr>
+            &lt;tr data-taskList-TaskID="${eachTask._id}">
+                &lt;td data-taskList-TaskID="${eachTask._id}" class="font-weight-bold" style="width:25%;">project &lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}"> ${eachTask.taskData.description.project}&lt;/td>
+            &lt;/tr>
+            &lt;tr data-taskList-TaskID="${eachTask._id}">
+                &lt;td data-taskList-TaskID="${eachTask._id}" class="font-weight-bold" style="width:25%;">deadline &lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}"> ${eachTask.taskData.time.deadline}&lt;/td>
+            &lt;/tr>
+            &lt;tr data-taskList-TaskID="${eachTask._id}">
+                &lt;td data-taskList-TaskID="${eachTask._id}" class="font-weight-bold" style="width:25%;">from &lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}"> ${getVisualName(eachTask.taskData.responsibilities.from)}&lt;/td>
+            &lt;/tr>
+            &lt;tr data-taskList-TaskID="${eachTask._id}">
+                &lt;td data-taskList-TaskID="${eachTask._id}" class="font-weight-bold" style="width:25%;">to&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}"> ${getVisualName(eachTask.taskData.responsibilities.to)}&lt;/td>
+            &lt;/tr>
+            &lt;tr data-taskList-TaskID="${eachTask._id}">
+                &lt;td data-taskList-TaskID="${eachTask._id}" class="font-weight-bold" style="width:25%;">created by&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}"> ${getVisualName(eachTask.submitter)}&lt;/td>
+            &lt;/tr>
+            &lt;tr data-taskList-TaskID="${eachTask._id}" class="shadow">
+                &lt;td data-taskList-TaskID="${eachTask._id}" class="font-weight-bold" style="width:10%;">progress &lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}" class="py-1" style="line-height:15px;"> 
+                ${
+                    (eachTask.taskData.time.deadline == today &amp;&amp; parseInt(progress.percentage) == 0)?
+                    `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-primary rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    (eachTask.taskData.time.deadline &lt; today &amp;&amp; parseInt(progress.percentage) == 0)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-danger rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    (parseInt(progress.percentage)==100)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-success rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    ((parseInt(progress.percentage) > 0 || parseInt(progress.percentage) &lt; 100) &amp;&amp; eachTask.taskData.time.deadline >= today)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-warning rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    ((parseInt(progress.percentage) > 0 || parseInt(progress.percentage) &lt; 100) &amp;&amp; eachTask.taskData.time.deadline &lt; today)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-danger rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    (parseInt(progress.percentage) == 0 &amp;&amp; eachTask.taskData.time.estimation.start > today)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-dark rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:''
+                }&lt;/td>
+            &lt;/tr>
+        &lt;/tbody>
+        `
+        };
+        //taskListTable.querySelector('tbody').innerHTML = taskListTableRow
+        taskListTable.innerHTML = taskListTableRow;
+    } else {
+        let taskListTableRow = `
+        &lt;thead class="tableHeadYellow">
+            &lt;tr class="text-center">
+                &lt;th style="width: 20%;" class="font-weight-bold text-capitalize" scope="col">name&lt;/th>
+                &lt;th style="width: 10%;" class="font-weight-bold text-capitalize" scope="col">project&lt;/th>
+                &lt;th style="width: 10%;" class="font-weight-bold text-capitalize" scope="col">deadLine&lt;/th>
+                &lt;th style="width: 10%;" class="font-weight-bold text-capitalize" scope="col">from&lt;/th>
+                &lt;th style="width: 10%;" class="font-weight-bold text-capitalize" scope="col">to&lt;/th>
+                &lt;th style="width: 10%;" class="font-weight-bold text-capitalize" scope="col">estimated time&lt;/th>
+                &lt;th style="width: 10%;" class="font-weight-bold text-capitalize" scope="col">created by&lt;/th>
+                &lt;th style="width: 15%;" class="font-weight-bold text-capitalize" scope="col">progress&lt;/th>
+
+ 
+            &lt;/tr>
+        &lt;/thead>
+        `;
+
+        for (let eachTask of tasksList.tasks) {
+            let progress = calculateState(eachTask.taskData.logs, eachTask.taskData.subTasks);
+            taskListTableRow +=
+                `
+            &lt;tbody class="text-center " style="${(parseInt(progress.percentage) == 100)?'opacity:0.6;':''}"  id="taskList_view_${eachTask._id}">
+            &lt;tr data-taskList-TaskID="${eachTask._id}" class="text-capitalize">
+                &lt;td data-taskList-TaskID="${eachTask._id}">${eachTask.taskData.description.name.trim()}&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}">${eachTask.taskData.description.project}&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}">${eachTask.taskData.time.deadline}&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}">${getVisualName(eachTask.taskData.responsibilities.from)}&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}">${getVisualName(eachTask.taskData.responsibilities.to)}&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}">${eachTask.taskData.time.estimation.amount} hrs&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}">${getVisualName(eachTask.submitter)}&lt;/td>
+                &lt;td data-taskList-TaskID="${eachTask._id}">
+                ${
+                    (eachTask.taskData.time.deadline == today &amp;&amp; parseInt(progress.percentage) == 0)?
+                    `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-primary rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    (eachTask.taskData.time.deadline &lt; today &amp;&amp; parseInt(progress.percentage) == 0)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-danger rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    (parseInt(progress.percentage)==100)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-success rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    ((parseInt(progress.percentage) > 0 || parseInt(progress.percentage) &lt; 100) &amp;&amp; eachTask.taskData.time.deadline >= today)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-warning rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    ((parseInt(progress.percentage) > 0 || parseInt(progress.percentage) &lt; 100) &amp;&amp; eachTask.taskData.time.deadline &lt; today)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-danger rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:
+                    (parseInt(progress.percentage) == 0 &amp;&amp; eachTask.taskData.time.estimation.start > today)?
+                        `&lt;div data-taskList-TaskID="${eachTask._id}" style="font-size:13px;" class="alert alert-dark rounded-pill px-1 py-1">In-Progress: (${progress.percentage}%, ${(progress.hours==undefined)?0:progress.hours}Hrs)&lt;/div>`:''
+                }
+                &lt;/td> 
+
+            &lt;/tr>
+        &lt;/tbody>`
+        };
+        taskListTable.innerHTML = taskListTableRow
+    }
+    runLoadingAnimation('Loading ... .')
+    get(
+        IDENTIFIERS.TASKS.NEW_TASK_PRE_DATA, {},
+        function(preData) {
+            stopLoadingAnimation();
+            fillNewTaskPreData(preData);
+            if (document.querySelector('#taskList_filter_projects').value == '' &amp;&amp; document.querySelector('#taskList_filter_users').value == '') {
+                let elementTaskCategory = '&lt;option>&lt;/option>'
+                for (let element of preData.projects) {
+                    elementTaskCategory += `&lt;option>${element}&lt;/option>`
+                }
+                document.querySelector('#taskList_filter_projects').innerHTML = elementTaskCategory;
+                $("#taskList_filter_projects").selectpicker('refresh');
+                //get task users list
+                let elementUser = '&lt;option>&lt;/option>'
+                for (let element of preData.users) {
+                    if (element.active !== 0) {
+
+                        elementUser += `&lt;option value='${element.userID}'>${element.visualName}&lt;/option> `
+                    }
+                }
+                document.querySelector('#taskList_filter_users').innerHTML = elementUser;
+                $("#taskList_filter_users").selectpicker('refresh');
+                /*   document.querySelector('#logRecord_filter_users').innerHTML = elementUser;
+                  $("#logRecord_filter_users").selectpicker('refresh'); */
+            }
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+            modalNewTask.classList.add('d-none');
+        }
+    );
+
+    //get all buttons which start by taskList_view_ 
+    let taskListViewButon = document.querySelectorAll('[data-taskList-TaskID]');
+    taskListViewButon.forEach(viewTaskBtn => {
+        if (specificTaskModal.querySelector('#taskList_specificTask_taskID').value == '') {
+
+            viewTaskBtn.onclick = function(e) {
+                let taskID = e.target.attributes['data-taskList-TaskID'].value
+                GETspecificTask(taskID)
+            };
+        } else {
+            GETspecificTask(specificTaskModal.querySelector('#taskList_specificTask_taskID').value)
+        }
+    });
+
+    /* let taskListHideButon = document.querySelectorAll('[id="taskList_view_HideTask"]');
+    taskListHideButon.forEach(HideTaskBtn => {
+
+
+        HideTaskBtn.onclick = function(e) {
+            let row = e.target.parentElement.parentElement;
+            row.classList.add('d-none')
+        };
+    }); */
+};
+
+/**
+ * fill output data, subtask table And log progress by calling its function and activate edit task button
+ * @function fillOutputsOfTaskView
+ * @param {object} specificTaskDataAndUsers - represent object that contain users list and task data
+ * @param {string} taskID - represent viewed task's ID
+ */
+function fillOutputsOfTaskView(specificTaskDataAndUsers, taskID) {
+    /*// clear existing timeouts to avoid tasks timeouts collision
+    for (let timeout of timeouts) {
+    	clearTimeout(timeout);
+    }
+    timeouts = [];*/
+
+    function getVisualName(userID) {
+        var userVisualName;
+        for (let user of specificTaskDataAndUsers.users) {
+            if (user.userID == userID) {
+                userVisualName = user.visualName;
+                break;
+            }
+        }
+        return userVisualName;
+    };
+
+    let taskSTATE = calculateState(specificTaskDataAndUsers.taskData.taskData.logs, specificTaskDataAndUsers.taskData.taskData.subTasks);
+    //calculateSubtasksState(specificTaskDataAndUsers.taskData.taskData.subTasks, specificTaskDataAndUsers.taskData.taskData.logs)
+
+    function getMultipleVisualNames(usersList) {
+        let usersString = "";
+        for (let user of usersList) {
+            usersString += "(" + getVisualName(user) + ")";
+        }
+        return usersString;
+    };
+    specificTaskModal.classList.remove('d-none');
+    document.querySelector('body').classList.add('overflow-hidden')
+    specificTaskModal.querySelector('#taskList_specificTask_taskID').value = taskID;
+
+    fillTableOfLogProgress('taskList_specificTask', specificTaskDataAndUsers.taskData);
+    subTasksParentID = "taskList_specificTask";
+
+    fillSubTasksList(specificTaskDataAndUsers.taskData.taskData.subTasks, specificTaskDataAndUsers.taskData, taskID);
+
+
+    loadTaskStates(specificTaskModal.querySelector('#taskList_specificTask_taskID').value);
+
+    
+    EditTaskModal(specificTaskDataAndUsers.taskData, taskID);
+
+    specificTaskModal.querySelector('#specificTask_output_task').innerHTML = specificTaskDataAndUsers.taskData.taskData.description.name.trim()
+    specificTaskModal.querySelector('#specificTask_output_notes').innerHTML = specificTaskDataAndUsers.taskData.taskData.description.notes
+    specificTaskModal.querySelector('#specificTask_output_category').innerHTML = specificTaskDataAndUsers.taskData.taskData.description.category
+    specificTaskModal.querySelector('#specificTask_output_priority').innerHTML = specificTaskDataAndUsers.taskData.taskData.description.priority
+    specificTaskModal.querySelector('#specificTask_output_state').innerHTML = `(${taskSTATE.percentage}%, ${(taskSTATE.hours==undefined)?0:taskSTATE.hours}Hrs)`
+
+    specificTaskModal.querySelector('#specificTask_output_project').innerHTML = specificTaskDataAndUsers.taskData.taskData.description.project
+
+    specificTaskModal.querySelector('#specificTask_output_deadline').innerHTML = specificTaskDataAndUsers.taskData.taskData.time.deadline
+    specificTaskModal.querySelector('#specificTask_output_estimatedTime').innerHTML = specificTaskDataAndUsers.taskData.taskData.time.estimation.amount
+    specificTaskModal.querySelector('#specificTask_output_estimatedStart').innerHTML = specificTaskDataAndUsers.taskData.taskData.time.estimation.start
+    specificTaskModal.querySelector('#specificTask_output_estimatedEnd').innerHTML = specificTaskDataAndUsers.taskData.taskData.time.estimation.end
+    specificTaskModal.querySelector('#specificTask_output_from').innerHTML = getVisualName(specificTaskDataAndUsers.taskData.taskData.responsibilities.from)
+    specificTaskModal.querySelector('#specificTask_output_to').innerHTML = getVisualName(specificTaskDataAndUsers.taskData.taskData.responsibilities.to)
+    specificTaskModal.querySelector('#specificTask_output_participants').innerHTML = getMultipleVisualNames(specificTaskDataAndUsers.taskData.taskData.responsibilities.participants)
+    specificTaskModal.querySelector('#specificTask_output_observers').innerHTML = getMultipleVisualNames(specificTaskDataAndUsers.taskData.taskData.responsibilities.observers)
+    specificTaskModal.querySelector('#specificTask_output_auditBy').innerHTML = getVisualName(specificTaskDataAndUsers.taskData.taskData.audition.by)
+    specificTaskModal.querySelector('#specificTask_output_auditionNotes').innerHTML = specificTaskDataAndUsers.taskData.taskData.audition.note
+
+};
+
+
+
+let specificTask_close = document.querySelector('#taskList_specificTask_close');
+/**
+ * close task view modal , when close modal will load tasks list again to refresh it 
+ * @event click - close task view modal
+ */
+specificTask_close.onclick = function() {
+    document.querySelector('body').classList.remove('overflow-hidden')
+    specificTaskModal.classList.add('d-none');
+    if (hasAccessToLogRecord) {
+        loadLogRecordFirstTime()
+    };
+
+    loadTasksFirstTime();
+    specificTaskModal.querySelector('#taskList_specificTask_taskID').value = ''
+    logProgressForSpecificSubTask = "";
+    // clear existing timeouts to avoid tasks timeouts collision
+
+    /*for (let timeout of timeouts) {
+        clearTimeout(timeout);
+    }
+    timeouts = [];*/
+};
+
+/* let specificTask_taskState = document.querySelector('#specificTask_taskState-tab');
+specificTask_taskState.onclick = function() {
+    loadTaskStates(specificTaskModal.querySelector('#taskList_specificTask_taskID').value);
+} */
+
+function loadTaskStates(TaskID) {
+
+    function getVisualName(userID) {
+        var userVisualName;
+        for (let user of usersList) {
+            if (user.userID == userID) {
+                userVisualName = user.visualName;
+                break;
+            };
+        };
+        return userVisualName;
+    };
+    function getStateName(stateID) {
+        var stateName;
+        for (let state of stateList) {
+            if (state._id == stateID) {
+                stateName = state.state;
+                break;
+            };
+        };
+        return stateName;
+    };
+
+    runLoadingAnimation('Loading... ');
+    get(IDENTIFIERS.TASKS.STATES.STATES, {},
+        function(data) {
+            stateList=data
+            let elementLocations = '&lt;option>&lt;/option>'
+            for (let states of data) {
+                elementLocations += `&lt;option value="${states._id}">${states.state}&lt;/option> `
+            }
+            document.querySelector('#specificTask_taskState_state').innerHTML = elementLocations;
+            $("#specificTask_taskState_state").selectpicker('refresh');
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+        }
+    );
+    
+    get(IDENTIFIERS.TASKS.STATES.TASK_STATES, 
+        {taskID:TaskID},
+        function(X) {
+            stopLoadingAnimation()
+
+            let row = `
+            &lt;thead class="thead-dark">
+                &lt;tr class="text-center text-capitalize">
+                    &lt;th style="width: 10%">time&lt;/th>
+                    &lt;th style="width: 10%">submitter&lt;/th>
+                    &lt;th style="width: 15%">state&lt;/th>
+                    &lt;th style="width: 25%">notes&lt;/th>
+
+                &lt;/tr>
+            &lt;/thead>
+                            `
+            for(let i of X){
+      
+                row +=`
+                &lt;tbody class="text-center">
+                    &lt;tr>
+                        &lt;td>${(new Date(i.time)).toLocaleDateString()}, ${(new Date(i.time)).toLocaleTimeString()}&lt;/td>
+                        &lt;td>${getVisualName(i.by)}&lt;/td>
+                        &lt;td>${getStateName(i._id)}&lt;/td>
+                        &lt;td>${i.notes}&lt;/td>
+                    &lt;/tr>
+                &lt;/tbody>
+                `
+            }
+        document.querySelector('#specificTask_taskStateTable_collapse #specificTask_taskStateTable').innerHTML =row
+        },
+        function(data) {
+            stopLoadingAnimation()
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+        }
+    );
+    
+};
+
+function PostTaskState() {
+    let formData = getIDsAndValuesFormAnyForm(`specificTask_taskStateForm`);
+    let TASKID = specificTaskModal.querySelector('#taskList_specificTask_taskID').value
+    let obj = {
+        stateID: formData.specificTask_taskState_state,
+        taskID: TASKID,
+        notes: formData.specificTask_taskState_notes,
+    };
+
+    runLoadingAnimation('Loading... ');
+    post(IDENTIFIERS.TASKS.STATES.NEW_STATE, obj,
+        function() {
+            stopLoadingAnimation()
+            $("#specificTask_taskState_state").val('');
+            $("#specificTask_taskState_state").selectpicker('refresh');
+            $('#specificTask_taskStateForm textarea').val('')
+            loadTaskStates(specificTaskModal.querySelector('#taskList_specificTask_taskID').value);
+            GETspecificTask(specificTaskModal.querySelector('#taskList_specificTask_taskID').value)
+        },
+        function(data) {
+            stopLoadingAnimation();
+            console.log(data.errMsg);
+            notifyResult(false, data.userMsg);
+        }
+    );
+};
+let specificTask_taskState_submit = document.querySelector('#specificTask_taskState_submit');
+specificTask_taskState_submit.onclick = function(e) {
+    e.preventDefault();
+    PostTaskState();
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

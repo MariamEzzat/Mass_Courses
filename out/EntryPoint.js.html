@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: EntryPoint.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: EntryPoint.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>var path = require('path');
+const dev = require("./utils/dev");
+const helpers = require("./utils/helpers");
+
+var express = require("express");
+var app = express();
+var http = require("http").createServer(app);
+const io = require("socket.io");
+var sIO = io(http);
+var bodyParser = require('body-parser');
+const { UserData } = require("./utils/models/Definitions");
+const { verifyUser } = require("./FrontAuthenticator");
+const flatted = require("flatted"); // for cyclic json objects 
+const SCRIPT_NAME = "\nEntryPoint";
+const FrontMarshal = require("./FrontMarshal");
+
+
+var connectedUsers = new Map();
+
+/** 
+ *ENTRY POINT HANDLES:
+ *INITIAL LOGIN
+ *CREATES SOCKET 
+ *	DIRECT DATA SENT FROM USER THROUGH SOCKET TO THE FRONT MARSHAL 
+ *GIVES CLIENT THE CONFIGURATIONS OF THE OTHER SERVERS IN NEED 
+ *	CACHE IP WHERE THE CLIENT OPENS SOCKET WITH IT 
+ *	ANYOTHER FUTURE LIGHT OR NON-DEPENDENT DIRECT TRANSACTION
+ *@method 
+ */
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(express.static('public'));
+
+
+
+app.get('/', frontPage, (req, res) => {
+    //dev.log("app.get callled");
+    res.send("Home Page " + JSON.stringify(req.prevData));
+});
+
+app.post('/home', preHomeAuth, serveHomePage);
+
+
+
+
+app.use(express.static("/out/"));
+app.get('/out/index.html', (req, res) => {
+
+    res.sendFile(path.join(__dirname, './out', 'index.html'));
+});
+
+/**
+ * TODO: IT'S BETTER TO MAKE CLASS THAT AUTHENTICATE USERS
+ * CREATES USER TOKEN, AND RETURNS USER OBJECT
+ * 10 digits usernamesubstring
+ * @method
+ */
+app.post('/auth', authenticator, (req, res) => {
+
+
+    var authenticationResult = 'UNAUTHENTICATED';
+    var userData = {};
+    userData = JSON.parse(JSON.stringify(req.body[0]));
+    if (userData.username == undefined || userData.password == undefined) {
+        authenticationFailed(
+            "Authentication Fail: missing username &amp;/or password", userData
+        );
+    }
+
+    /*
+		TODO: IT'S BETTER TO MAKE CLASS THAT AUTHENTICATE USERS
+    */
+
+
+
+    // CREATES USER TOKEN, AND RETURNS USER OBJECT
+    function createAuthenticatedUser(userData, userID) {
+        var user = "Couldn't be created due to error";
+        try {
+            //NOTE: FOR NOW WE ONLY CREATE EASY TOKEN BY TIME, USERNAME, &amp; RANDOM#
+            var fullTime = helpers.getfullTimeString(); //year to seconds no spaces
+
+            var randomValue = helpers.getRandomNumber(100000); // five digit random
+
+            var usernameSubstring = helpers.getFixedSubstring(
+                (userData.username == undefined ? userData.email : userData.username),
+                10
+            ); // 10 digits usernamesubstring
+
+            var token = fullTime + randomValue + usernameSubstring;
+
+            user = new UserData(
+                userData.username,
+                userData.email,
+                token,
+                "", //socket ID
+                userID
+            );
+
+        } catch (error) {
+            console.log(
+                "EntryPoint-/auth-createToken: ERROR while creating authenticated user, error: " + error
+            );
+        }
+        return user;
+    }
+
+    // VERIFY IF USER EXISTS AND PW CORRECT.
+    verifyUser(
+        userData.username,
+        userData.email,
+        userData.password,
+        (recievedEnvylop) => {
+            authenticationResult = recievedEnvylop.status == "SUCCESS" ? "AUTHENTICATED" : "UNAUTHENTICATED";
+            postUserVerification(recievedEnvylop);
+        }
+    );
+
+
+    function postUserVerification(recievedEnvylop) {
+        if (authenticationResult == 'AUTHENTICATED') {
+            //TODO: SETUP INITIAL CONFIGS &amp; DIRECT USER TO THE MAIN PAGE OR ELSE IF EXISTED
+
+            //NOTE: FOR NOW WE ONLY LET THE FRONT END DIRECT HIMSELF
+            // 		WHAT SHOULD BE DONE IS BACK END DIRECTING ACCORDING TO THIS USER ACCISSIBILITY
+
+            //NOTE: FOR NOW WE EXTRACT USERDATA RAW FROM REQ.BODY AS IT IS 
+            //		BUT THIS MUST BE CHANGED IN TERMS OF VALIDATION &amp; THE AUTHENTICATION PROCESS.
+            var user = createAuthenticatedUser(userData, recievedEnvylop.userID);
+
+
+            //** pushing user to connected users array
+            /*connectedUsers.push(user);*/
+
+
+            connectedUsers.set(user.username, user);
+
+            var respond = {
+                status: "AUTHENTICATED",
+                userData: {
+                    username: user.username,
+                    email: user.email,
+                    token: user.token
+                }
+            };
+
+
+            res.send(respond);
+
+        } else {
+            //TODO: SEND USER FAILED AUTHENTICATION RESPOND AND ALLOW TO RELOGIN 
+
+            authenticationFailed("Authentication Fail: Wrong username &amp;/or password", userData);
+
+        }
+
+        function authenticationFailed(reason, userData) {
+            //TODO: IF DECIDED, LOG WRONG ACCESS TRIAL &amp;/OR CHECK FOR BRUTE FORCE?DENY:.
+            if (userData == undefined) userData = {};
+            var respond = {
+                status: "UNAUTHENTICATED",
+                reason: reason,
+                userData: {
+                    username: userData.username,
+                    email: userData.email,
+                    password: userData.password
+                }
+            }
+            res.send(respond);
+        }
+    }
+
+
+
+});
+
+/** 
+ *NOTICE: THIS ARRAY FOR THE USERS THAT LOGGED IN THEN HOME SENT AUTH CHECK
+ *TODO: CHECK FOR TIME OUTS
+ *@constructor
+ */
+
+//const FrontMarshalRequester = new Cote.Requester({ name: 'Front Marshal', key: 'FrontMarshal' });
+
+class Socket {
+
+    /*
+    	CREATES SOCKET, DIRECT DATA TO FRONTMARSHAL, 
+
+    */
+
+    constructor(socket, disconnectUser) {
+
+        this.socketIO = socket;
+        this.okaty = "okaty";
+
+        // NOTE: we store connected users as a reference for who're online.
+        this.connectedSockets = [];
+        this.disconnectUser = disconnectUser;
+
+    }
+
+
+    start() {
+
+        this.socketIO.on("connect", (userSocket) => {
+            // TODO CHECK AUTHENTICATION OF THIS USER. PROPOSAL: TOKEN IDENTIFIER
+            //		NOTIFY CONCERNED LEVELS OF A NEW USER CONNECTED(COTE),
+            //		MAINTAIN A BIDIRECTIONAL REFRENCE PROPOSAL: CALLBACK CHAINING.
+            //dev.log("user connected with id: ", userSocket.id);
+            //TODO: user user authenticiy will only be valid after login,
+            //	THERE ARE SOME CASES THAT THIS USER WILL NOT BE AUTHENTIC
+            //	LINK THE TIME OUT WITH THIS STATE 
+            var userAuthentic = false;
+            let userID = "NOT AUTHENTIC";
+
+
+            userSocket.on("authenticate", (data) => {
+                var envylop = { socketID: userSocket.id, userData: data };
+                this.authenticateUserOnSocket(
+                    envylop,
+                    (sentUserID) => { // authenticated cb
+                        //TODO: DECIDE ON THE SOCKET ID THAT MULTIPLE SOCKETS MADE FORM THE SAME USER
+                        //NOTICE: HERE WE ADD THE USER TO THE CONNECTED USERS ARRAY
+                        userAuthentic = true;
+                        userSocket.emit("authentication result", { status: "SUCCESS" });
+                        userID = sentUserID;
+                    },
+                    (reason) => { //unauthenticated cb
+                        userSocket.emit("authentication result", { status: "FAILED", reason: reason });
+                    }
+                );
+            })
+
+            let user = {};
+            user.id = userSocket.id;
+            user.timeConnected = new Date();
+            user.token = '';
+
+            this.connectedSockets.push(user);
+
+            userSocket.on('check', (dataSent) => {
+                dev.log("check sent with data: ", JSON.stringify(dataSent));
+                userSocket.emit('check respond', "Server check respond msg");
+            });
+
+            //NOTE: DIRECT DATA FROM FRONT END TO FRONT MARSHAL
+            //		SEND BACK DATA TO CLIENT.
+            //		NUETRAL CALL BACK 
+            /* userSocket.on("action", (data) => {
+                 if (data != undefined)
+                     data.servicesRoutes = [];
+
+
+                 this.directToFrontMarshal(
+                     data,
+                     (respond) => {
+                         userSocket.emit('action respond', respond);
+                     }
+                 );
+
+             });*/
+            userSocket.on("services requests", (envelope) => {
+                if (envelope != undefined)
+                    envelope.servicesRoutes = [];
+
+
+
+                envelope["attachedData"] = {
+                        requester: userID,
+                        time: helpers.getCurrentTime()
+                    }
+                    //envelope.attachedUserID = userID;
+
+                FrontMarshal.reciever(envelope, (respond) => {
+                    userSocket.emit('services responds', respond);
+                });
+
+                /* this.directToFrontMarshal (
+                     envelope,
+                     (respond) => {// HERE IS THE FINAL ROLL BACK FROM SERVICES TO PUSH TO THE USER.
+                         
+                         //A SERVICE MIGHT SEND A REQUEST TO NOTIFY SOME USERS THAT A LOCAL DATA THEY HAVE IS CHANGED AND NEEDS TO BE UPDATED, WE CHECK IF THE RESPOND SENT CONTAINS AN AFFECTED USERS ATTRIBUTE OR  NOT 
+                         if (respond.hasOwnProperty('affectedUsersEnvelope')) { 
+                             this.notifyAffectedUsers (respond.affectedUsersEnvelope);
+                             delete respond.affectedUsersEnvelope;
+                         }
+                         
+
+                         userSocket.emit('services responds', respond);
+                     }
+                 );*/
+            })
+
+
+            userSocket.on("cache", (data) => {
+                //TODO PROPOSAL: THIS WILL ONLY SEND BACK IP OF THE CACHING SERVER
+                //		THEN CLIENT OPENS SOCKET WITH IT AND TRANSMITS CACHE(TEMP SAVE)
+            });
+
+
+
+            userSocket.on('disconnect', () => {
+                //dev.log('disconnected user: ', JSON.stringify(user));
+                this.userDisconnected(userID);
+            });
+        });
+
+        console.log(SCRIPT_NAME + ": Server Started");
+
+    }
+
+    async notifyAffectedUsers(affectedUsersEnvelope) {
+        // TODO: SEND EMIT MASSAGE TO NOTIFY USERS THAT A A SERVICE LOCAL DATA NEEDS TO BE UPDATED.
+        console.log(SCRIPT_NAME + ". NOTIFY AFFECTED USERS CALLED, affectedUsersEnvelope: " + flatted.stringify(affectedUsersEnvelope));
+
+
+
+        let affectedUsers = affectedUsersEnvelope.affectedUsers;
+        let envelope = {
+            serviceID: affectedUsersEnvelope.serviceID,
+            data: {
+                public: affectedUsersEnvelope.data,
+                private: {}
+            }
+        }
+        for (var affectedUser of affectedUsers) {
+            for (var connectedUser of connectedUsers) { // TODO: **** CHANGE TO MAP
+                if (connectedUser.userID == affectedUser.userID) {
+                    //  emit the wanted request
+                    envelope.data.private = affectedUser.data;
+                    sIO.to(connectedUser.socketID).emit("data changed", envelope);
+                }
+            }
+        }
+
+    }
+
+    // IMPORTANT NOTICE: ON ABSTRACTING THIS CLASS TO BE STAND ALONE FROM THIS SCRIPT
+    // 					THIS FUNCTION NEEDS CONNECTED USERS WHICH CONTAINS USERNAME AND TOKEN
+    authenticateUserOnSocket(recievedEnvylop, success, fail) {
+        var valid = false;
+        var usernameExists = false;
+
+        /*for (let user of connectedUsers) {
+        	if (user.username === recievedEnvylop.userData.username) {
+        		usernameExists = true;
+        		if (user.token === recievedEnvylop.userData.token) {
+        			valid = true;
+        			user.socketID = recievedEnvylop.socketID;
+        			success(user.userID);
+        			break;
+        		}
+        	}
+        }*/
+        /*connectedUsers.forEach((user, userID) => {
+            if (user.username === recievedEnvylop.userData.username) {
+                usernameExists = true;
+                if (user.token === recievedEnvylop.userData.token) {
+                    valid = true;
+                    user.socketID = recievedEnvylop.socketID;
+                    success(user.userID);
+                }
+            }
+        });*/
+
+        let user = connectedUsers.get(recievedEnvylop.userData.username);
+        if (typeof user != "undefined") {
+            usernameExists = true;
+            if (user.token === recievedEnvylop.userData.token) {
+                valid = true;
+                user.socketID = recievedEnvylop.socketID;
+                success(user.userID);
+            }
+        }
+
+        if (!valid) {
+            fail(usernameExists ?
+                "invalid authentication, username exists but wrong token" :
+                "invalid authentication, username doesn't exist on connected users"
+            );
+        }
+
+    }
+
+
+    /*
+    //NOTE: THIS METHOD SENDS DATA TO FRONTMARSHAL AND APPLYING NEXT CB
+    		THIS METHOD DOESN'T CARE FOR THE FAIL CALLBACK
+    		IT ONLY A MIDDLE WARE BETWEEN FRONTMARSHAL AND CLIENT'S SOCKET
+    		NUETRAL CALLBACK
+    */
+    async directToFrontMarshal(data, next) {
+
+        if (data == null) { next('no data'); return; }
+
+        //*devtrace
+        if (dev.DEV_TRACE_ENABLED) {
+            data.servicesRoutes.push("EntryPoint sending to FrontMarshal");
+        }
+        var envylop = { type: "actionRouting", data: data };
+
+
+        /* ****************************** COTE ************************ */
+        FrontMarshalRequester.send(
+            envylop,
+            (recievedEnvylop) => {
+                // NOTE HERE THE FRONT MARSHAL RESPONDED AND RESPOND WILL BE SENT BACK
+
+                //*devtrace
+                if (dev.DEV_TRACE_ENABLED) {
+                    recievedEnvylop.data.servicesRoutes.push('EntryPoint recieved FrontMarshal n');
+                }
+
+                next(recievedEnvylop.data);
+            }
+        );
+
+
+    }
+
+    userDisconnected(userID) {
+        //TODO 	REMOVE USER FROM CONNECTED_USERS ARRAY
+        //		NOTIFY RECIEVERS CONCERNED OF DISPATCHING A USER (COTE CALL)
+
+    }
+
+
+
+    broadcast(msg) {};
+
+    emit(userID, msg) {};
+
+    disconnectByUserID(userID) {
+        //TODO ATTACH IT TO PROMISE, AS THIS CALL WILL BE FROM CHAIN PROMISES
+        // NOTICE:THIS MIGHT NOT BE NEEDED, NEEDED FOR THE FORCING DISCONNECT
+        //TODO LOOK FOR HOW TO GET SOCKET OF THIS USER AND DISCONNECT HIM
+
+        /*
+        		if (this.socketIO.sockets.connected[userID]) {
+        			this.socketIO.connected[userID].disconnect();
+        		}
+        */
+        //TODO: REMOVE USER FROM THE ARRAY
+
+    }
+
+
+}
+
+
+let socket = new Socket(sIO, disconnectUser);
+socket.start();
+
+
+function disconnectUser(userID) {
+    //dev.log(JSON.stringify(sIO.sockets.sockets));
+    //sIO.sockets.connected[userID].disconnect(true);
+    /*
+		TODO: DELETE user from connected users array
+    */
+
+}
+
+
+function authenticator(req, res, next) {
+    // auth then call next if auth fail
+    // call the auth module via cote!!
+    //res.send("ok you are auth.");
+    //console.log("authenticator directing req.body: " + JSON.stringify(req.body));
+    next();
+}
+
+
+
+let auth = () => {};
+
+function frontPage(req, res, next) {
+    //dev.log("home function");
+    req.prevData = { hi: "hello" };
+
+    res.sendFile(path.join(__dirname + '/public/login.html'));
+
+}
+
+function home(req, res, next) {
+
+
+    res.sendFile(path.join(__dirname + "/public/home.html"));
+
+}
+
+
+
+
+/** 
+ *@function preHomeAuth -HOME PAGE SERVING
+ */
+
+
+function preHomeAuth(req, res, next) {
+
+    function isValidToken(userData) {
+        // TODO: TO COORDINATE WITH THE INCOMING SOCKET FROM HOME
+        //		WE NEED TO CHECK THE VALIDITY OF THE SENT TOKEN.
+
+        // FOR NOW ASSUME VALIDITY CHECK TRUE;
+        var isValid = false;
+        /*for (user of connectedUsers) {
+            if (user.username == userData.username &amp;&amp; user.token == userData.token) {
+                isValid = true;
+            }
+        }*/
+        let user = connectedUsers.get(userData.username);
+
+        if (typeof user != "undefined") {
+            if (user.username == userData.username &amp;&amp; user.token == userData.token) {
+                isValid = true;
+            }
+        }
+
+
+        return isValid;
+    }
+
+
+    var userData = req.body;
+
+    if (!isValidToken(userData)) {
+        //TODO: RESPOND WITH AN INVALID AUTHENTICATION ERROR
+        res.sendFile(path.join(__dirname + "/public/login.html"));
+    } else {
+        next();
+    }
+
+}
+
+function serveHomePage(req, res, next) {
+    function isReadyForSocket(userData) {
+        //TODO: JUST INCASE THERE ARE SOME ACTIONS NEEDED BEFORE USER REQUESTS SOCKET
+        // 		CONNECTION FROM HOME PAGE.
+        return true;
+    }
+
+    //NOTICE: THAT FOR NOW USER DATA IS EXTRACTED FROM REQ.BODY AS IT IS
+    //			THIS MIGHT BE CHANGED IF THERE IS MORE DATA ORGANIZING
+    var userData = req.body;
+
+    if (!isReadyForSocket(userData)) {
+        // TODO: RESPOND WITH A SERVER NOT READY ERROR
+
+    } else {
+        res.sendFile(path.join(__dirname + "/public/home.html"));
+    }
+}
+
+
+
+
+http.listen(8090);
+
+//new Cote.Sockend(sIO, {name: 'Main sockend server'});</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

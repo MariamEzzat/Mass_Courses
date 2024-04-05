@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: public/js/frontEnd/global.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: public/js/frontEnd/global.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>function getNameOfFileUploaded(arrFiles) {
+    var h = '';
+    for (let elm of arrFiles) {
+        h += `${elm.name} &lt;br>`;
+    }
+    return h;
+};
+
+function cleanArray(actual) {
+    var newArray = new Array();
+    for (var i = 0; i &lt; actual.length; i++) {
+        if (actual[i]) {
+            newArray.push(actual[i]);
+        }
+    }
+    return newArray;
+}
+
+
+const removeEmpty = (obj) => {
+    let newObj = {};
+    Object.keys(obj).forEach((key) => {
+        if (obj[key] === Object(obj[key])) newObj[key] = removeEmpty(obj[key]);
+        else if (obj[key] !== undefined) newObj[key] = obj[key];
+    });
+    return newObj;
+};
+
+function removeEmptiesObjInsideObj(obj) {
+    let objData = obj
+    let finalObj
+    Object.keys(objData).some(x => {
+        if (objData[x] == '' || objData[x] == undefined) {
+            delete objData[x]
+            finalObj = objData
+        } else {
+            finalObj = objData
+        }
+    })
+    return finalObj
+};
+/* ====================================================== loader(spinning) ===================================================== */
+/* Loader functionv  */
+/* function to show loader to user when proccessing */
+function runLoadingAnimation(msg) {
+    let loaderAnimationMsg = document.querySelector('#loaderAnimationMsg');
+    let loaderAnimation = document.querySelector('#loaderAnimation');
+    loaderAnimationMsg.innerHTML = msg;
+    loaderAnimation.style.display = 'block';
+    loaderAnimation.style.background = 'rgba(16, 54, 97, 0.544)';
+};
+
+/* function to hide loader from user when action successed */
+function stopLoadingAnimation() {
+    loaderAnimation.style.display = 'none';
+};
+
+/* ======================================================= notify modal ============================================================ */
+/* to show msg from server if success or fail  */
+function notifyResult(boolean, msg, next) {
+    document.querySelector('#notificationModal').classList.remove('d-none');
+    document.querySelector('#notificationModal').classList.add('fade-in');
+    document.querySelector('#notificationModal_paragraph').innerHTML = '';
+    document.querySelector('#notificationModal_paragraph').innerHTML = msg;
+    if (boolean == true) {
+        document.querySelector('#notificationModal_true').classList.remove('d-none');
+        document.querySelector('#notificationModal_false').classList.add('d-none');
+    } else {
+        document.querySelector('#notificationModal_false').classList.remove('d-none');
+        document.querySelector('#notificationModal_true').classList.add('d-none');
+    };
+
+    document.querySelector('#notificationModal_close').onclick = function() {
+        document.querySelector('#notificationModal').classList.add('d-none');
+        if (next != undefined) next();
+    }
+};
+
+/* warning Alert  */
+function warningAlert(msg, nextContinue, nextCancel) {
+
+    document.querySelector('#warningAlertModal').classList.remove('d-none');
+    document.querySelector('#warningAlertModal').classList.add('fade-in');
+    document.querySelector('#warningAlertModal_paragraph').innerHTML = '';
+    document.querySelector('#warningAlertModal_paragraph').innerHTML = msg;
+
+    document.querySelector('#warningAlertModal_close').onclick = function() {
+        document.querySelector('#warningAlertModal').classList.add('d-none');
+        if (nextCancel != undefined) nextCancel();
+    }
+    document.querySelector('#warningAlertModal_continue').onclick = function() {
+        document.querySelector('#warningAlertModal').classList.add('d-none');
+        if (nextContinue != undefined) nextContinue();
+    }
+};
+
+/* =================================================== add modal for lists ============================================================== */
+
+let addInList = document.querySelectorAll('.addInList');
+let addModal = document.querySelector('#addModal');
+/**
+ * opend addModal to add in specific list 
+ * @event
+ */
+addInList.forEach(each => {
+    each.addEventListener('click', function(e) {
+        e.preventDefault();
+        addModal.classList.remove('d-none');
+        addModal.querySelector('button').id += e.target.previousElementSibling.children[0].id;
+        addModal.querySelector('label').innerHTML = `${e.target.previousElementSibling.children[0].id.split('_')[2]}`;
+    });
+});
+
+/**
+ *  add in specific list 
+ * @event
+ */
+addModal.querySelector('button').addEventListener('click', function(e) {
+    let selectID = e.target.id.split('-')[1];
+    let input = addModal.querySelector('input').value.trim();
+
+    if (input == '') {
+        addModal.classList.add('d-none');
+        $(`#${selectID}`).selectpicker('refresh');
+        e.target.id = 'addModal_button_add-';
+    } else {
+        $(`#${selectID}`).append(`&lt;option>${input}&lt;/option>`)
+        $(`#${selectID}`).selectpicker('refresh');
+        $(`#${selectID}`).selectpicker('val', input);
+        addModal.querySelector('input').value = "";
+        e.target.id = 'addModal_button_add-';
+        addModal.classList.add('d-none');
+    }
+});
+
+addModal.querySelector('.overlay').onclick = function() {
+    addModal.classList.add('d-none');
+};
+
+/* ======================================== get inputs ids and value from any form ================================================= */
+
+/**
+ * get inputs ids and value from any form 
+ * @function
+ */
+function getIDsAndValuesFormAnyForm(formID) {
+    let FORM = document.querySelector(`#${formID}`);
+    let formElements = FORM.querySelectorAll('input , textarea , select');
+    let dataObj = {};
+    formElements.forEach(each => {
+        dataObj[each.id] = each.value.trim();
+    });
+    return dataObj;
+};
+
+/* =================================================== log progress script file =========================================================== */
+/* var logProgressTab = document.querySelector('#logProgressTab').parentElement;
+logProgressTab.addEventListener('click', loadScript, false);
+
+function loadScript() {
+    var script = document.createElement("script");
+    script.src = "js/frontEnd/tasks/logProgress.js";
+    $('body').append(script);
+    logProgressTab.removeEventListener('click', loadScript, false);
+    return false;
+} */
+
+/**
+ * fill table of log progress
+ * @function fillTableOfLogProgress - fill table of log progress
+ * @param {string} parentID - parent div that contain table in html
+ * @param {Array} specificTask - array contains users and task Data
+ */
+function fillTableOfLogProgress(parentID, specificTask) {
+    let logProgressTable = document.querySelector(`#${parentID} #logProgress_logTable`);
+    if ($(window).width() &lt; '890') {
+        let logProgressTableData = `
+        &lt;thead class="text-capitalize font-weight-bold tableHeadYellow">
+            &lt;th>subtask name&lt;/th>
+            &lt;th>&lt;/th>
+            &lt;th>&lt;/th>
+        &lt;/thead>`;
+        for (let element of specificTask.taskData.logs) {
+            logProgressTableData += `
+            &lt;tbody>
+                &lt;tr>
+                    &lt;td style="width:25%;" class="px-2" rowspan="7">${element.subTask}&lt;/td>  
+                &lt;/tr>
+                &lt;tr>
+                    &lt;td class="font-weight-bold" style="width:25%;">date &lt;/td>
+                    &lt;td>${element.date}&lt;/td>
+                &lt;/tr>
+                &lt;tr>
+                    &lt;td class="font-weight-bold" style="width:25%;">hours &lt;/td>
+                    &lt;td>${element.hours}&lt;/td>
+                &lt;/tr>
+                &lt;tr>
+                    &lt;td class="font-weight-bold" style="width:25%;"> % &lt;/td>
+                    &lt;td>${element.percentage}&lt;/td>
+                &lt;/tr>
+                &lt;tr>
+                &lt;td class="font-weight-bold" style="width:25%;"> location &lt;/td>
+                &lt;td>${(element.location==undefined)?'':element.location}&lt;/td>
+            &lt;/tr>
+                &lt;tr>
+                    &lt;td class="font-weight-bold" style="width:25%;">notes&lt;/td>
+                    &lt;td>${element.notes}&lt;/td>
+                &lt;/tr>
+                &lt;tr>
+                    &lt;td class="font-weight-bold" style="width:25%;">attach. &lt;/td>
+                    &lt;td>&lt;i class="fas fa-eye">&lt;/i>&lt;/td>
+                &lt;/tr>
+            &lt;/tbody>
+            `;
+        }
+        logProgressTable.innerHTML = logProgressTableData;
+    } else {
+        let logProgressTableData = `
+            &lt;thead class="tableHeadYellow">
+                &lt;tr class="text-center text-capitalize">
+                    &lt;th style="width: 10%">date&lt;/th>
+                    &lt;th style="width: 25%">subtask&lt;/th>
+                    &lt;th style="width: 5%">hours&lt;/th>
+                    &lt;th style="width: 5%">percentage&lt;/th>
+                    &lt;th style="width: 5%">by&lt;/th>
+                    &lt;th style="width: 7%">location&lt;/th>
+                    &lt;th style="width: 45%">notes&lt;/th>
+                    &lt;th style="width: 10%">attachments&lt;/th>
+                &lt;/tr>
+            &lt;/thead>`;
+
+
+        for (let element of specificTask.taskData.logs) {
+            logProgressTableData += `
+            &lt;tbody class="text-center">
+                &lt;tr class="text-capitalize">
+                    &lt;td>${element.date}&lt;/td>
+                    &lt;td>${element.subTask}&lt;/td>
+                    &lt;td>${element.hours}&lt;/td>
+                    &lt;td>${element.percentage}&lt;/td>
+                    &lt;td>${getVisualName(element.by)}&lt;/td>
+                    &lt;td>${(element.location==undefined)?'':element.location}&lt;/td>
+                    &lt;td>&lt;p style="word-break: break-word;white-space: break-spaces;">${element.notes}&lt;/p>&lt;/td>
+                    &lt;td>
+                        &lt;i class="fas fa-eye">&lt;/i>
+                    &lt;/td>
+                &lt;/tr>
+            &lt;/tbody>`;
+
+
+        }
+        logProgressTable.innerHTML = logProgressTableData;
+    }
+};
+
+document.querySelectorAll('input[type="file"]').forEach(inp => {
+    inp.onchange = function(e) {
+        console.log(e.target.files);
+        if (e.target.value == "") {
+            e.target.labels[0].innerHTML = `&lt;p class="text-center">Upload&lt;/p>`;
+        } else {
+
+            e.target.labels[0].innerHTML = getNameOfFileUploaded(e.target.files);
+        }
+    };
+});
+/* ============================================== new task  script file ======================================================== */
+
+/* var newTaskTab = document.querySelector('#newTaskTab').parentElement;
+newTaskTab.addEventListener('click', loadScript, false);
+
+function loadScript() {
+    var script = document.createElement("script");
+    script.src = "js/frontEnd/tasks/newTask.js";
+    $('body').append(script);
+    newTaskTab.removeEventListener('click', loadScript, false);
+    return false;
+} */
+
+/* =================================================== task list script file =========================================================== */
+/* var taskListTab = document.querySelector('#taskListTab').parentElement;
+taskListTab.addEventListener('click', loadScript, false);
+
+function loadScript() {
+    var script = document.createElement("script");
+    script.src = "js/frontEnd/tasks/taskList.js";
+    $('body').append(script);
+    taskListTab.removeEventListener('click', loadScript, false);
+    return false;
+} */
+
+function getVisualName(userID) {
+    var userVisualName;
+    for (user of usersList) {
+        if (user.userID == userID) {
+            userVisualName = user.visualName;
+            break;
+        }
+    }
+    return userVisualName;
+};
+
+/* fill task state log table */
+// function fillTableOfTaskStateLogProgress(parentID, specificTask, usersList) {
+//     function getVisualName(userID) {
+//         var userVisualName;
+//         for (user of usersList) {
+//             if (user.userID == userID) {
+//                 userVisualName = user.visualName;
+//                 break;
+//             }
+//         }
+//         return userVisualName;
+//     };
+//     let taskStateTable = document.querySelector(`#${parentID} #logProgress_taskState`);
+//     let taskStateTableData = ''
+//     for (let element of specificTask.taskData.stateLogs) {
+//         taskStateTableData += `&lt;tr class="text-capitalize">
+//                 &lt;td>${element.Date}&lt;/td>
+//                 &lt;td>${getVisualName(element.Submitter)}&lt;/td>
+//                 &lt;td>${element.State}&lt;/td>
+//             &lt;/tr>`;
+//     }
+//     taskStateTable.querySelector('tbody').innerHTML = taskStateTableData;
+// };
+// /* fillTableOfTaskStateLogProgress('logProgress',{
+//     taskData:{
+//         stateLogs:[{
+//             State:"pending",
+//             Submitter:"51",
+//             Date:'19/01/2020'
+//         },{
+//             State:"pending",
+//             Submitter:"31",
+//             Date:'19/01/2020'
+//         },{
+//             State:"pending",
+//             Submitter:"51",
+//             Date:'19/01/2020'
+//         },{
+//             State:"pending",
+//             Submitter:"21",
+//             Date:'19/01/2020'
+//         }]
+//     }
+// },[{
+//     userID:'21',
+//     visualName:'nour'
+// },{
+//     userID:'51',
+//     visualName:'omar'
+// },{
+//     userID:'31',
+//     visualName:'roshdy'
+// }]) */
+/* =================================================== setting task script file =========================================================== */
+/* var logProgressTab = document.querySelector('#setting_taskTab').parentElement;
+logProgressTab.addEventListener('click', loadScript, false);
+
+function loadScript() {
+    var script = document.createElement("script");
+    script.src = "js/frontEnd/tasks/logProgress.js";
+    $('body').append(script);
+    logProgressTab.removeEventListener('click', loadScript, false);
+    return false;
+}; */</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

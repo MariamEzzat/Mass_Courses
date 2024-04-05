@@ -1,0 +1,76 @@
+<div class="d-flex justify-content-end pt-3">
+    <button class="btn btn-danger text-capitalize rounded-circle" id="addLectureForCourse_close">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+<div class="row" id="addLectureForCourse_form">
+    <input type="text" hidden id="addLectureForCourse_courseID" name="courseID">
+    <div class="col-md-10 rounded shadow card p-2 mx-auto">
+        <div class="d-flex justify-content-center py-3 mx-auto">
+            <h3 class="dark-green text-uppercase font-weight-bold">❖ add lecture for '<span></span>' ❖</h3>
+        </div>
+
+        <div class="p-2 row">
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newLecture_label_title">title</label>
+                <input type="text" class="form-control rounded-pill" id="newLecture_input_title" name="title">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newLecture_label_lectureNumber">lecture Number</label>
+                <input class="form-control rounded-pill" id="newLecture_input_lectureNumber" type="text" name="number">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="newLecture_label_videoName">video name</label>
+                <input type="text" class="form-control rounded-pill" id="newLecture_input_videoName" name="videoName">
+            </div>
+            <div class="form-group col-md-3">
+                <label class="text-capitalize pl-2" id="newLecture_label_subject">video</label>
+                <input type="file" id="newLectureVideos" class="form-control rounded-pill" name="video">
+                <output></output>
+                <div class="progress mt-2 d-none">
+                    <div class="progress-bar progress-bar-striped" id="newlectureProgressVideos" role="progressbar" style="width: 0%" value="0%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+
+            <div class="offset-2"></div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize" id="newLecture_label_MarkDemo">
+                        <input type="checkbox" class="custom-checkbox" id="newLecture_input_MarkDemo" name="demo"> mark as demo
+                    </label>
+
+            </div>
+            <div class="form-group col-md-12">
+                <label class="text-capitalize pl-2" id="newLecture_label_description">description</label>
+                <textarea rows="2" class="form-control rounded-pill px-3 py-2" id="newLecture_input_description" style="overflow:hidden" name="description"></textarea>
+            </div>
+            <div class="parent col-md-12">
+                <div class="p-1 row parentChild_Lecture">
+                    <div class="form-group col-md-2">
+                        <label class="text-capitalize pl-2" id="newLecture_label_title">name</label>
+                        <input type="text" class="form-control rounded-pill" id="newLecture_input_materialTitle" name="name">
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label class="text-capitalize pl-2" id="newLecture_label_subject">materials</label>
+                        <input type="file" id="newLectureMaterials" class="form-control rounded-pill" name="materials">
+                        <output></output>
+                        <div class="progress mt-2 d-none">
+                            <div class="progress-bar progress-bar-striped" id="newlectureProgressMaterial" role="progressbar" style="width: 0%" value="0%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                    <div class="form-group col-md-2 py-0 my-auto d-flex justify-content-end">
+                        <i class="addRow_Lecture fas fa-plus text-warning border rounded p-2 "></i>
+                        <i class="fas fa-times border border-danger rounded text-danger p-2 removeRow_Lecture d-none"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-top pt-2 mt-1">
+            <div class="d-flex justify-content-center justify-content-md-end">
+                <button type="submit" class="btn text-capitalize bg-secondary text-white rounded px-4 py-2" id="addLectureForCourse_buttonClose">close</button>
+                <button type="submit" class="btn text-capitalize rgba-darkBlue text-white rounded px-4 py-2 ml-3" id="addLectureForCourse_buttonSubmit">save</button>
+                <button type="submit" class="btn text-capitalize rgba-darkBlue text-white rounded px-4 py-2 ml-3 d-none" id="addLectureForCourse_buttonEdit">edit</button>
+            </div>
+        </div>
+    </div>
+</div>

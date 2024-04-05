@@ -1,0 +1,78 @@
+<div class="d-flex justify-content-between" id="view_header">
+    <h4 class="text-capitalize font-weight-bold text-info py-2" id="view_courseTitle">
+        
+        javascript principles
+    </h4>
+
+</div>
+<div class="row py-2 px-2">
+    <div class="col-lg-8 mt-2 pr-0">
+
+
+        <video id="player" crossorigin playsinline preload="metadata" autoplay controls="true">
+            <!-- <source src="../img/Center logo in navbar Perfect Coding (Most people do it wrong way).mp4"> -->
+        </video>
+        <div class="p-1 mt-2 border rounded rgba-grey-lighter">
+            <section id="person-tablinks-Section" class="rounded mt-1 d-flex justify-content-center rgba-white-lighter" style="width: fit-content;">
+                <ul class="nav nav-tabs">
+                    <li class="nav-item">
+                        <a class="nav-link newUresActive text-capitalize" id="general-tab" href="#" course-tab-target="#general">general</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-capitalize" id="attachment-tab" href="#" course-tab-target="#view_listOfAttachments">attachments</a>
+                    </li>
+                 
+                </ul>
+            </section>
+            <div class="tab-content" id="newPersonForm" onkeydown="return event.key != 'Enter';">
+
+                <div class="mt-1 card p-2 shadow" id="general" course-tab-content>
+                    <div class="border-bottom p-1 m-1">
+                        <p id="view_instructorsNames" class="text-capitalize font-weight-bold">
+
+                        </p>
+                    </div>
+                    <div class="border-bottom p-1 m-1">
+                        <p class="text-capitalize font-weight-bold" id="view_videoName">
+
+                        </p>
+                    </div>
+                    <div class="p-1 m-1">
+                        <p class="text-capitalize font-weight-bold" id="view_lectureDescription">
+
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-1 card p-2 shadow d-none" id="view_listOfAttachments" course-tab-content>
+
+                </div>
+
+           
+
+            </div>
+
+        </div>
+
+    </div>
+    <div class="col-lg-4 mt-2 pl-0">
+        <div class="border rounded-top py-3 px-2">
+
+        </div>
+        <ul id="lecturesList" class="border list-unstyled rounded-bottom" style="height: 630px;overflow-y: auto;">
+
+            <!-- <li class="p-1">
+                <div class="rounded border rgba-grey-lighter p-2 d-flex flex-column">
+                    <small class="text-capitalize text-primary ml-auto">now playing</small>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <i class="fas fa-play-circle fa-2x text-secondary"></i>
+                        <p class="my-auto">Lorem, ipsum dolor. Lorem ipsum dolor sit.</p>
+                        <small class="text-secondary">04:40</small>
+                    </div>
+                    <small class="ml-auto pt-2"><a href="#" class="fas fa-paperclip"> Material.rar</a></small>
+                </div>
+            </li> -->
+
+        </ul>
+    </div>
+</div>

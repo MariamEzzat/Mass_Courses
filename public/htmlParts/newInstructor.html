@@ -1,0 +1,74 @@
+<div class="d-flex justify-content-end pt-3">
+    <button class="btn btn-danger text-capitalize rounded-circle" id="newInstructor_close">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+<input type="text" hidden id="edit_instructorID" name="instructorID">
+<div class="row" id="newInstructor_form">
+
+    <div class="col-md-8 rounded shadow card p-2 mx-auto">
+        <div class="d-flex justify-content-center py-3 mx-auto">
+            <h3 class="dark-green text-uppercase font-weight-bold">❖ create new instructor ❖</h3>
+        </div>
+        <div class="p-2 row">
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">ID</label>
+                <input type="text" class="form-control rounded-pill" id="newInstructor_input_ID" name="mID">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">Name</label>
+                <input type="text" class="form-control rounded-pill" id="newInstructor_input_name" name="name">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">e-mail</label>
+                <input type="email" class="form-control rounded-pill" id="newInstructor_input_email" name="email">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">primary mobile</label>
+                <input type="text" class="form-control rounded-pill" id="newInstructor_input_primaryMobile" name="primaryMobile">
+                <label class="text-capitalize pl-2" for="newInstructor_checkBox_primaryMobile">
+                    <input type="checkbox" class="custom-checkbox" id="newInstructor_checkBox_primaryMobile" name="primaryWhatsapp"> whatsapp
+                </label>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">secondary mobile</label>
+                <input type="text" class="form-control rounded-pill" id="newInstructor_input_secondaryMobile" name="secondaryMobile">
+                <label class="text-capitalize pl-2" for="newInstructor_checkBox_secondaryMobile">
+                    <input type="checkbox" class="custom-checkbox" id="newInstructor_checkBox_secondaryMobile" name="secondaryWhatsapp"> whatsapp
+                </label>
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">password</label>
+                <input type="password" class="form-control rounded-pill" id="newInstructor_input_password" name="password">
+            </div>
+            <div class="form-group col-md-2">
+                <label class="text-capitalize pl-2" id="">subjects</label>
+                <div class="d-flex align-items-center">
+                    <select class="selectpicker" data-size="5" multiple title="Select Subject/s" data-style="text-dark font-weight-light text-capitalize rounded border bg-white rounded-pill" data-live-search="true " id="newInstructor_input_subject" name="subjects" value="">
+                        <option value="subject 1">subject 1</option>
+                        <option value="subject 2">subject 2</option>
+                        <option value="subject 3">subject 3</option>
+                        <option value="subject 4">subject 4</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label class="text-capitalize pl-2" id="newInstructor_label_notes">notes</label>
+                <textarea rows="1" class="form-control rounded-pill p-1" id="newInstructor_input_notes" style="overflow:hidden" name="notes"></textarea>
+            </div>
+            <div class="form-group col-md-3">
+                <label class="text-capitalize pl-2" id="newInstructor_label_image">image</label>
+                <input type="file" id="newInstructor_input_image" class="form-control rounded-pill">
+                <div class="progress mt-2 d-none">
+                    <div class="progress-bar progress-bar-striped" id="newInstructorProgressImage" role="progressbar" style="width: 0%" value="10%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+        <div class="border-top pt-2 mt-1">
+            <div class="d-flex justify-content-center justify-content-md-end">
+                <button type="submit" class="btn rgba-darkBlue text-white rounded px-5 py-2" id="newInstructor_buttonSubmit">Create</button>
+                <button type="submit" class="btn rgba-darkBlue text-white d-none rounded px-5 py-2" id="newInstructor_buttonEdit">Edit</button>
+            </div>
+        </div>
+    </div>
+</div>

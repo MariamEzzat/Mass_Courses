@@ -1,0 +1,24 @@
+{
+
+    "source": {
+        "include": [
+            "public", "services", "models", "controllers", "AssignedTasks",
+            "EntryPoint.js", "Encryption.js", "FrontAuthenticator.js", "Logger.js", "FrontMarshal.js"
+        ],
+        "exclude": ["public/js/BootStrape"],
+        "includePattern": ".js$",
+        "excludePattern": "docs"
+    },
+    "plugins": [
+        "plugins/markdown"
+    ],
+    "templates": {
+        "cleverLinks": true,
+        "monospaceLinks": true
+    },
+    "opts": {
+        "recurse": true,
+        "distination": "./out/",
+        "template": "node_modules/jsdoc/templates/default"
+    }
+}

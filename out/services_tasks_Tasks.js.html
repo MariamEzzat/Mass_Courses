@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: services/tasks/Tasks.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: services/tasks/Tasks.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+	SERVICE ID: 00T00
+
+	NOTE: THIS HANDLES:
+			(00T01) LOAD NEW TASK PREDATA  
+			(00T02) SUBMIT NEW TASK 
+			(00T03) TASKS ASSIGNED TO 
+			(00T04) INSERT NEW LOG PROGRESS
+			(00T05) 
+
+*/
+//const Cote = require ('cote');
+const dev = require('./../../utils/dev');
+const dbHandler = require("./dbHandler");
+let helpers = require("./../../utils/helpers"); // for date function.
+const SCRIPT_NAME = "\nTasks.js service";
+
+
+
+/*const Responder = new Cote.Responder ({ name: "TASKS", key: "00T" });
+const ServiceRequester = new Cote.Requester ({ name: "Services Marshal", key: "Services Marshal" })
+*/
+
+
+let functionMapper = new Map([
+    ["00T00", schema],
+    ["00T01", tasksPreData],
+    ["00T02", insertNewTask],
+    ["00T03", userAssignedTasks],
+    ["00T04", insertLogProgress],
+    ["00T05", userTasks],
+    ["00T06", insertSubTask],
+    ["00T07", taskSubTasks],
+    ["00T08", removeSubTask],
+    ["00T09", getTaskLogProgress],
+    ["00T10", insertTaskState],
+    ["00T11", getTaskStatesLog],
+    ["00T12", editTask],
+    ["00T13", task],
+    ["00T14", filter],
+    ["00T15", tasksBasic], // returns tasks list {_id, name}
+    ["00T16", tasksLogsRecordsFilter],
+    ["00T17", tasksLogsRecordsAccess],
+    ["00T18", taskAccess], // recieves taskID and return hasAccess:true/false
+    ["00T19", comments], // recieves taskID &amp; subtaskID, returns document _id, subtask, comments:[{_id, by, val}]
+    ["00T20", insertComment], // recieves {taskID, subtaskID, comment}
+    ["00T21", statesPreData], // gives states preData: [{_id, state}]
+    ["00T22", insertNewState], // recieves {taskID, stateID, notes}
+    ["00T23", taskStates], // recieves {taskID}, gives: [{_id, by, time, notes}]
+]);
+
+//AU next(respond): respond: {status, data, affectedUsers}
+/*
+
+	external: 	
+
+			recievedEnvelope: {serviceID, data},
+			attachedData: {requester:userID}, undefined incase of intercommunication 
+			next(respond): respond: { serviceID, status, data:rawData } 
+
+
+	internal: 	
+			function (data, attachedData, next) data:rawData, attachedData: backendData
+			respond: {status, data:rawData}
+
+	
+
+*/
+/**
+ * 
+ * @function reciever
+ * @param {*} envelope 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+exports.reciever = (envelope, attachedData, next) => {
+    /*AU
+    	let affectedUsers = [];
+    	if (envelope.hasOwnProperty("affectedUsers")) {
+    		affectedUsers = envelope.affectedUsers;
+    		delete envelope.affectedUsers;
+    	}
+    */
+    try {
+        functionMapper.get(envelope.serviceID)(
+            envelope.data,
+            attachedData,
+            (respond) => {
+                if (respond.status != "SUCCESS") {
+                    /*AU
+                    				// here to make it possible for future affected users on function.
+                    				if (respond.hasOwnProperty("affectedUsers")) {
+                    					affectedUsers.push(...respond.affectedUsers);
+                    				}
+                    */
+                }
+                let finalEnvelope = {
+                    serviceID: envelope.serviceID,
+                    status: respond.status,
+                    data: respond.data
+                }
+                next(finalEnvelope);
+
+            }
+        );
+    } catch (err) {
+        //throw err;
+        next({
+            serviceID: envelope.serviceID,
+            status: "FAILED",
+            data: err
+        });
+    }
+
+
+
+}
+
+function schema(data, attachedData, next) {
+
+    dbHandler.applySchema({},
+        (result) => {
+            next({
+                status: "SUCCESS",
+                data: result
+            });
+        },
+        (err) => {
+            next({
+                status: "FAILED",
+                data: err
+            });
+        }
+    )
+
+}
+
+
+
+/* ******* NEW TASK START ******** */
+
+/**
+ * - RESPOND WITH THE PRE CONFIGURED DATA
+ * @function tasksPreData
+ * @param {*} data 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+function tasksPreData(data, attachedData, next) {
+    //var data = recievedEnvelope.data;
+
+    //dev.logTrace(data, "Tasks service recieved on a code 00T01");
+    //TODO: VALIDATING->DATABASE->ID->ATTACHMENTS NAMES
+
+    //dev.logTrace(data, "Tasks service sending back respond");
+
+    /*data.data = {
+    	categories: ["Marketing", "Sales" ],
+    	projects: ["ERP", "United Project"],
+    	states: ['In-progress', 'Done', 'Future'],
+    	users: [{id:'1234', visualName: 'Ahmed'}, {id:'1144', visualName:'Omar'}],
+    	priorities: ["Urgent", "High", "Medium", "Low"]
+    }*/
+
+    /*
+    	TODO: 
+    		GET TASKS DATA FROM THE FIRST DOCUMENT IN TASKS COLLECTION
+    		GET USERS VIA COTE VIA USERS SERVICE 
+    */
+    fillPreData( // will retrieve task data and users identifiers
+        (recievedData) => { // success
+            /*	data.data = recievedData;
+            	let envelope = {status: "SUCCESS", data: data};*/
+            next({
+                status: "SUCCESS",
+                data: recievedData
+            });
+        },
+        (err) => { // failed
+            //let envelope = {status: "FAILED", data: err}
+            next({
+                status: "SUCCESS",
+                data: err
+            });
+        }
+    )
+
+}
+
+/**
+ * 
+ * @function fillPreData
+ * @param {*} success 
+ * @param {*} fail 
+ */
+function fillPreData(success, fail) {
+    // FIRST GET TASKS PRE DATA FROM TASKS SERVICE DATABASE HANDLER
+    // THEN GET USERS FROM COTE USERS SERVICE
+
+
+    /*	function postPreDataSuccess () {
+    		//TODO: CALL COTE FOR USERS IDENTIFIERS
+    		var envelope = {
+    			type: "request service",
+    			data: {serviceID: "00U01"}
+    		}
+    		ServiceRequester.send(envelope, postUsersIdentifiers);
+    	}
+
+    	function postUsersIdentifiers (recievedEnvelope) {
+    		if (recievedEnvelope.status == "SUCCESS") {
+    			preData.users = recievedEnvelope.data.users;
+    			success (preData);
+    		} else {
+    			console.log(SCRIPT_NAME + ".fillPreData.postUsersIdentifiers: recieved from users service FAILED, envelope: " + JSON.stringify(recievedEnvelope));
+    			fail(recievedEnvelope.data);
+    		}
+    	}*/
+
+    dbHandler.getTasksPreData(
+        (recievedPreData) => {
+            var preData = {};
+            preData.categories = recievedPreData.categories;
+            preData.priorities = recievedPreData.priorities;
+            preData.projects = recievedPreData.projects;
+            preData.states = recievedPreData.states;
+            preData.locations = recievedPreData.locations;
+            //			postPreDataSuccess();
+            success(preData);
+        },
+        (errMsg) => {
+            fail(errMsg);
+        }
+    );
+}
+
+
+
+
+
+
+
+
+
+
+// SUBMITTING NEW TASK DATA.
+function insertNewTask(data, attachedData, next) {
+    /*
+    	THIS RESPONSIBLE FOR:
+    		-VALIDATING TASK DATA
+    		-IF VALID THEN PUSH IN DATABASE
+    		-RETRIEVE TASK CREATED ID
+    		-ASSIGN NAMES COMPINED WITH TASK ID TO THE ATTACHMENTS NAMES
+    		-RETURN STATUS AND ATTACHMENTS NAMES LIST
+    */
+
+    function formatTask(taskData) {
+
+        //let taskData = rawData.taskData;
+
+        var task = {
+            submitter: attachedData.requester,
+            submitDate: helpers.getfullTimeString(),
+            to: taskData.responsibilities.assignedTo,
+            taskData: {
+                description: {
+                    name: taskData.name,
+                    notes: taskData.notes,
+                    category: taskData.category,
+                    priority: taskData.priority,
+                    project: taskData.project,
+                    state: taskData.state
+                },
+                time: {
+                    deadline: taskData.timePlanning.deadline,
+                    estimation: {
+                        amount: taskData.timePlanning.estimatedTime.hours,
+                        start: taskData.timePlanning.estimatedTime.startDate,
+                        end: taskData.timePlanning.estimatedTime.endDate,
+                    }
+                },
+                responsibilities: {
+                    from: taskData.responsibilities.assignedFrom,
+                    to: taskData.responsibilities.assignedTo,
+                    participants: taskData.responsibilities.participants, // TODO check if valid
+                    observers: taskData.responsibilities.observers
+                },
+                audition: {
+                    by: taskData.audition.auditedBy,
+                    note: taskData.audition.auditionNotes
+                },
+                attachments: [],
+                logs: [],
+                subTasks: taskData.subTasks // _id will be added to each subtask in dbHandler (*NOTICE*)
+            }
+        }
+
+
+        return task;
+    }
+
+
+    //var data = recievedEnvylop.data;
+    //dev.logTrace(data, "Tasks service recieved on a code 00T02");
+    //TODO: VALIDATING->DATABASE->ID->ATTACHMENTS NAMES
+
+    let taskData = formatTask(data);
+
+    let newConstants = {
+        hasNewProject: (data.hasNewProject == "TRUE") ? true : false,
+        hasNewCategory: (data.hasNewCategory == "TRUE") ? true : false
+    }
+
+    dbHandler.insertTask( //INSERTING TASK HERE. (DB)
+        formatTask(data),
+        newConstants,
+        (res) => { // success
+            /*let serviceRespond = { // HERE WILL BE THE RESPOND WHERE IF A SERVICE WANTS TO 
+            	status: "SUCCESS" // to client not inter-service communication
+            }
+            data.serviceRespond = serviceRespond;
+            var envelope = {status:"SUCCESS", data: data};*/
+            next({
+                status: "SUCCESS",
+                data: "New Task Submitted successfully, 'attachements list in database.'"
+            });
+
+        },
+        (errMsg) => { // fail
+            /*let serviceRespond = { // HERE WILL BE THE RESPOND WHERE IF A SERVICE WANTS TO 
+            	status: "FAILED" // to client not inter-service communication
+            }
+            data.serviceRespond = serviceRespond;
+            var envelope = {status:"FAILED", data: data};*/
+            next({
+                status: "FAILED",
+                data: errMsg
+            });
+        }
+    );
+
+
+}
+
+
+/* ******* NEW TASK END ******** */
+
+
+
+
+
+
+
+
+
+/* ******* LOG PROGRESS START ******** */
+
+
+
+// 00T03 LOAD USER TASKS
+/*
+	WILL RESPOND: 
+		{
+			respond: {
+				status: "SUCCESS/FAILED",
+				tasksList: [as mongo],
+				errMsg: {recieved error from mongo's find}
+			}
+		}
+*/
+
+// IMP NOTICE: USERS STILL USE COTE
+/**
+ * 
+ * @function userAssignedTasks
+ * @param {*} data 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+function userAssignedTasks(data, attachedData, next) {
+
+    dbHandler.getTasksListFor(
+        attachedData.requester,
+        (result) => { //SUCCESS
+            //postTasksSuccess(result);
+            next({
+                status: "SUCCESS",
+                data: result
+            })
+        },
+        (err) => {
+            /*console.log(SCRIPT_NAME + ".post getTasksAssignedTo err: " + JSON.stringify(err));
+            let respond = {};
+            respond.status = "FAILED";
+            respond.errMsg = err;
+            data.respond = respond;
+            let envelope = {status: "FAILED", data: data};*/
+            next({
+                status: "FAILED",
+                data: err
+            });
+        }
+    );
+
+
+};
+
+
+
+
+// 00T04 SUBMIT NEW LOG PROGRESS
+/*
+	WILL RESPOND: 
+		{
+			respond: {
+				status: "SUCCESS/FAILED",
+				errMsg: {failed case, most likely a database respond err msg}
+			}
+		}
+
+	WILL RECIEVED: 
+		{
+			data:{
+				log progress json,
+				affectedUsers: [ // affected users is attribute thats deleted from logprogress data then sent back incase of success for entry point to determine
+					{userID, data}
+				]
+			}
+			
+		}
+
+*/
+
+function getTaskStatesLog(data, attachedData, next) {
+    // VALIDATE
+    let missing = helpers.missingProperties(["taskID"], data);
+    if (missing !== false) { // missing property, respond with error
+        let errMsg = "Missing fields: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+        return;
+    }
+
+    //database
+    dbHandler.getTaskStatesLog(
+        data.taskID,
+        (result) => {
+            next({
+                status: "SUCCESS",
+                data: result
+            })
+        },
+        (err) => {
+            next({
+                status: "FAILED",
+                data: err
+            })
+        }
+    );
+
+}
+
+
+/**
+ * 
+ * @function insertLogProgress
+ * @param {*} data 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+function insertLogProgress(data, attachedData, next) {
+    //let data = recievedEnvelope.data;
+
+    let logData = data;
+    logData.submitDate = helpers.getfullTimeString();
+    /*
+    	let affectedUsersList = JSON.parse (JSON.stringify(logData.affectedUsers));// we parse cuz deleting might delete globally 
+    	delete logData.affectedUsers;
+    */
+
+    /*console.log (SCRIPT_NAME + ".SUBMIT NEW LOG: ENVELOPE SENT: " + JSON.stringify(recievedEnvelope));*/
+
+
+    //********************************* validation of Task STATE ************8
+    /*	getTaskStatesLog (
+    		logData.taskID,
+    		{},
+    		(envelope) => {
+    			if (envelope.status != "SUCCESS") {
+    				console.log (SCRIPT_NAME + ", insertLogProgress getTaskStatesLog failed: " + JSON.stringify(envelope.data));
+    				next ({
+    					status: "FAILED",
+    					data: envelope.data
+    				});
+    				return;
+    			}
+    			if (envelope.data[0] != "In-Progress") { // HERE WE CHECK IF THE TASK IS VALID FOR ADDING PROGRESS
+    				next ({
+    					status: "FAILED",
+    					data: "Task is not In-Progress"
+    				});
+    				return;
+    			}
+    			insertTaskLogProgressAfterValidation();
+    		}
+    	);*/
+
+
+
+    addLocationIfNew();
+
+    /**
+     * 
+     * @function addLocationIfNew
+     */
+    function addLocationIfNew() {
+        // TODO: *******************************
+        dbHandler.insertLocationIfNew(
+            logData.location,
+            (result) => {
+
+                insertTaskLogProgressAfterValidation();
+            },
+            (err) => {
+                next({
+                    status: "FAILED",
+                    data: "Error while inserting location err: " + JSON.stringify(err)
+                })
+            }
+        )
+
+    }
+    /**
+     * 
+     * @callback insertTaskLogProgressAfterValidation - TODO: check if not valid
+     */
+    function insertTaskLogProgressAfterValidation() {
+        dbHandler.insertTaskLogProgress(
+            logData,
+            attachedData.requester,
+            (result) => { // SUCCESS
+                /*
+				data.respond = { status: "SUCCESS", data: "l" };
+
+	AU			data.affectedUsersEnvelope = {
+					serviceID: "00T04",
+					data: "public data created in the service",
+					affectedUsers: affectedUsersList
+				}
+				let envelope = { status: "SUCCESS", data: data };
+				console.log (SCRIPT_NAME + ".SUBMIT NEW LOG: SUCCESS EVELOPE PREPARED TO BE SENT: " + JSON.stringify(envelope));
+				
+	*/
+
+                // TODO: result must contain logID
+                if (!result.hasOwnProperty("_id")) {
+                    next({
+                        status: "FAILED",
+                        data: "After submitting log there was no id returned"
+                    });
+                    return;
+                }
+
+                insertLogRecord(
+                    result, //formatted log data that was submitted to the db
+                    logData.taskID
+                )
+
+                /*
+                				next ({
+                					status: "SUCCESS",
+                					data: "Log progress submitted successfully"
+                				});
+                				*/
+            },
+            (err) => { // FAILED
+                /*
+                data.respond = { status: "FAILED", errMsg: err };
+                let envelope = { status: "FAILED", data: err };*/
+                next({
+                    status: "FAILED",
+                    data: err
+                });
+            }
+        );
+    }
+
+    /**
+     * 
+     * @function insertLogRecord 
+     */
+    function insertLogRecord(logSubmittedDB, taskID) {
+        /*
+        	INSERT 
+        	date: logData.date,
+        	hours: logData.hours,
+        	percentage: logData.percentage,
+        	notes: logData.notes,
+        	subTask: logData.subTask,
+        	location: logData.location,
+        	submitDate: String(date),
+        	by: String(logger),
+        	_id: String(_id)
+        */
+
+        let logRecord = {
+            task: taskID,
+            subTask: logSubmittedDB.subTask,
+            log: logSubmittedDB._id,
+            hours: logSubmittedDB.hours,
+            percent: logSubmittedDB.percentage,
+            logger: logSubmittedDB.by,
+            date: logSubmittedDB.submitDate, // date&amp;time the log is submitted at
+            dateSubmitted: logSubmittedDB.date, // user entered 
+            location: logSubmittedDB.location
+        }
+
+        dbHandler.insertTaskLogProgressRecord(
+            logRecord,
+            (result) => {
+                next({
+                    status: "SUCCESS",
+                    data: "Log Progress submitted successfully"
+                });
+            },
+            (err) => {
+                next({
+                    status: "FAILED",
+                    data: err
+                });
+            }
+        )
+    }
+
+};
+
+
+
+/* ******* LOG PROGRESS END ******** */
+
+
+
+
+/* ******* TASKS LIST ******** */
+/**
+ *  @function userTasks
+ * @param {*} data 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+function userTasks(data, attachedData, next) {
+
+    dbHandler.getTasksListFor(
+        attachedData.requester,
+        (result) => { //SUCCESS
+            //postTasksSuccess(result);
+            next({
+                status: "SUCCESS",
+                data: result
+            })
+        },
+        (err) => {
+            /*console.log(SCRIPT_NAME + ".post get tasks list err: " + JSON.stringify(err));
+            let respond = {};
+            respond.status = "FAILED";
+            respond.errMsg = err;
+            data.respond = respond;
+            let envelope = {status: "FAILED", data: data};
+            next (envelope);*/
+            next({
+                status: "FAILED",
+                data: err
+            })
+        }
+    );
+
+};
+
+
+function insertSubTask(data, attachedData, next) {
+    // VALIDATE
+    let missing = helpers.missingProperties(["taskID", "name", "hours", "type"], data);
+    if (missing !== false) { // missing property, respond with error
+        let errMsg = "Missing fields: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+        return;
+    }
+    // DATABASE
+    dbHandler.insertSubTask(
+        data.taskID, {
+            name: data.name,
+            hours: data.hours,
+            type: data.type,
+            notes: data.notes
+                // _id: will be added in dbhandler (*NOTICE*)
+        },
+        (result) => {
+            next({
+                status: "SUCCESS",
+                data: "New subtask" + data.name + " submitted successfully."
+            });
+        },
+        (err) => {
+            next({
+                status: "FAILED",
+                data: err
+            })
+        }
+    )
+}
+
+
+
+function taskSubTasks(data, attachedData, next) {
+    // VALIDATE
+    let missing = helpers.missingProperties(["taskID"], data);
+    if (missing !== false) { // missing property, respond with error
+        let errMsg = "Missing fields: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+        return;
+    }
+
+    // DATABASE
+    dbHandler.getSubTasks(
+        data.taskID,
+        (result) => {
+            next({
+                status: "SUCCESS",
+                data: result
+            });
+        },
+        (err) => {
+            next({
+                status: "FAILED",
+                data: err
+            });
+        }
+    )
+}
+
+
+
+
+function getTaskLogProgress(data, attachedData, next) {
+    // VALIDATE
+    let missing = helpers.missingProperties(["taskID"], data);
+    if (missing !== false) { // missing property, respond with error
+        let errMsg = "Missing fields: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+        return;
+    }
+
+    // DATABASE
+    dbHandler.getLogProgress(
+        data.taskID,
+        (result) => {
+            next({
+                status: "SUCCESS",
+                data: result
+            });
+        },
+        (err) => {
+            next({
+                status: "FAILED",
+                data: err
+            })
+        }
+    )
+
+}
+
+
+
+function removeSubTask(data, attachedData, next) {
+    // VALIDATE
+    let missing = helpers.missingProperties(["taskID", "name"], data);
+    if (missing !== false) { // missing property, respond with error
+        let errMsg = "Missing fields: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+        return;
+    }
+
+    // VALIDATE SUBTASK CAN BE REMOVED, by checking if this subtask contains log progress
+
+    function postLogProgress(result) {
+        if (result.status == "FAILED") {
+            console.log(SCRIPT_NAME + " ERROR while removing subtask: postSubtasks error" + JSON.stringify(result));
+            next({
+                status: "FAILED",
+                data: result.data
+            });
+        } else { // subtasks retrieved, return failed if subtasks doesn't has log
+            for (log of result.data[0].taskData.logs) {
+                if (data.name == log.subTask) { // the subtask contains progress can't be removed
+                    next({
+                        status: "FAILED",
+                        data: "subtask '" + data.name + "' has progress"
+                    });
+                    return;
+                }
+            }
+            onValidSubTask();
+        }
+    }
+
+    getTaskLogProgress(data, {}, postLogProgress);
+
+
+    // CALLED IF SEARCHING FOR PROGRESS FOR THIS SUBTASK.
+    function onValidSubTask() {
+        dbHandler.removeSubTask(
+            data.taskID,
+            data.name,
+            (result) => {
+                next({
+                    status: "SUCCESS",
+                    data: "SubTask '" + data.name + "' submitted successfully"
+                });
+            },
+            (err) => {
+                next({
+                    status: "FAILED",
+                    data: err
+                });
+            }
+        );
+    }
+}
+
+
+
+// insert task state
+function insertTaskState(data, attachedData, next) {
+    // VALIDATE
+    let missing = helpers.missingProperties(["taskID", "name"], data);
+    if (missing !== false) { // missing property, respond with error
+        let errMsg = "Missing fields: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+        return;
+    }
+
+    let state = {
+        name: data.name,
+        submitter: attachedData.requester,
+        date: helpers.getfullTimeString()
+    };
+
+
+    dbHandler.insertTaskState(
+        data.taskID,
+        state,
+        (result) => { // success
+            updateTaskCurrentState();
+        },
+        (err) => {
+            next({
+                status: "FAILED",
+                data: err
+            });
+        }
+    )
+
+
+    // update the own property (first level 'state') with the current string 
+    function updateTaskCurrentState() {
+        dbHandler.updateTaskCurrentState(
+            data.taskID,
+            state.name,
+            (result) => {
+                next({
+                    status: "SUCCESS",
+                    data: "Task state updated successfully"
+                });
+            },
+            (err) => {
+                next({
+                    status: "FAILED",
+                    data: err
+                });
+            }
+        );
+    }
+
+
+
+}
+
+
+
+// Edit task 
+/* REQUIRE: data = {
+				taskID: "",
+				taskData: {
+					for now all the taskData values will be sent including edited values
+					so this will not help in future EventBasedDataModel. validation required for EBDM
+				}
+			}
+*/
+/**
+ * 
+ * @function editTask
+ * @param {*} data 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+function editTask(data, attachedData, next) {
+    // VALIDATE
+    let missing = helpers.missingProperties(["taskID"], data);
+    if (missing !== false) { // missing property, respond with error
+        let errMsg = "Missing values: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+        return;
+    }
+
+    let taskNewData = {};
+    let taskID = data.taskID;
+
+    // loop for properties and add them, this loop made mainly for future validation.
+    for (property in data.taskData) {
+        taskNewData[property] = data.taskData[property];
+    }
+
+    dbHandler.editTask(
+        taskID,
+        taskNewData,
+        (result) => { //success
+            next({
+                status: "SUCCESS",
+                data: {}
+            });
+        },
+        (err) => { //failed
+            let errReason;
+            if (err === "NO_CHANGE") errReason = "NO_CHANGE";
+            else errReason = "Unknown error (database handler returned failed): " + JSON.stringify(err);
+            next({
+                status: "FAILED",
+                data: errReason
+            });
+        }
+    )
+}
+
+
+
+
+
+
+// TODO: task  implement hasAccess return if no access for this user.
+//  
+function task(data, attachedData, next) {
+    // VALIDATE
+    let missing = helpers.missingProperties(["taskID"], data);
+    if (missing != false) {
+        let errMsg = "Missing fields: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+    }
+    // FIRST CHECK IF USER CAN SEE THIS TASK DATA: ********************************************************
+    // BY either of this action, call services marshal to call function that validate
+    // 		or directly check in the data base if this user exist in the task data responsibilities
+
+    taskAccess({ taskID: data.taskID },
+        attachedData,
+        (envelope) => { // NEXT
+            if (envelope.status == "SUCCESS") {
+                if (envelope.data.hasAccess) {
+                    getTask(); // here we call get task data
+                } else {
+                    next({
+                        status: "SUCCESS",
+                        data: { hasAccess: false }
+                    });
+                }
+            } else {
+                next({
+                    status: "FAILED",
+                    data: envelope.data
+                })
+            }
+        }
+    );
+
+
+    function getTask() {
+
+        dbHandler.task(
+            data.taskID,
+            (result) => { // success
+                next({
+                    status: "SUCCESS",
+                    data: result
+                });
+            },
+            (err) => {
+                next({
+                    status: "FAILED",
+                    data: err
+                })
+            }
+        )
+
+    }
+
+
+}
+
+
+
+
+
+/*
+
+filterObject: {
+		pageNumber:,
+		pageSize:,
+		query: { // don't include properties not needed.
+			to: "userID", // assigned to
+			project: "projectNameString",
+			overdue: 1/0 // 1 for tasks that's deadline is past today
+			estimation: {
+				future: 1/0,
+				overdue: 1/0,
+				// include potential date range or date picking.
+			}
+		}
+
+*/
+
+
+
+// recieves filter object: pageNumber, pageSize, &amp; query:describes what will be sent
+function filter(data, attachedData, next) {
+
+    let missing = helpers.missingProperties(["pageNumber", "pageSize"], data);
+    if (missing != false) {
+        let errMsg = "Missing fields: " + JSON.stringify(missing);
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+    }
+
+    dbHandler.filter(
+        data,
+        attachedData.requester,
+        (result) => {
+            next({
+                status: "SUCCESS",
+                data: result
+            });
+        },
+        (err) => {
+            console.log("err post db filter: " + JSON.stringify(err))
+            next({
+                status: "FAILED",
+                data: err
+            });
+        }
+    );
+}
+
+
+/**
+ * - serves a list of all tasks user into basic identifiers. {_id, taskName}
+ * @function tasksBasic - serv/Tasks.js
+ * @param {*} data 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+function tasksBasic(data, attachedData, next) {
+
+    // Validate user access. changed to 
+    /*
+    tasksBasicListAccess ({}, attachedData, (envelope) => {
+    	switch (envelope.status) {
+    		case "FAILED": {
+    			nextFailed (envelope.data);
+    			break;
+    		}
+    		case "SUCCESS": {
+    			try {
+    				if (envelope.data.hasAccess == true) {
+    					postAuthentication();
+    				} else {
+    					nextFailed ({
+    						errMsg: "User doesn't has access to this list";
+    					});
+    				}
+    			} catch (err) {
+    				nextFailed (err.message);
+    			}
+    		}
+    	}
+    });
+    */
+
+
+    /**
+     * - Decided to send all users that connected user is in 
+     * @function postAuthentication - serv/Tasks.js
+     */
+    function postAuthentication() {
+        dbHandler.tasksBasic(
+            attachedData.requester,
+            (result) => {
+                try {
+                    // removed to be processed in the sdk
+                    /*let tasksBasicList = [];
+                    for (let taskBasic of result) {
+                    	tasksBasicList.push ({
+                    		_id: taskBasic._id,
+                    		taskName: taskBasic.description.name
+                    	});
+                    }*/
+
+
+                    next({
+                        status: "SUCCESS",
+                        data: result
+                    });
+                } catch (err) {
+                    nextFailed(err.message);
+                }
+            },
+            (err) => {
+                nextFailed(err);
+            }
+        )
+    }
+
+    postAuthentication();
+    /**
+     * 
+     * @function nextFailed - serv/Tasks.js
+     * @param {*} data 
+     */
+    function nextFailed(data) {
+        console.log(SCRIPT_NAME + " nextFailed tasksBasic: " + JSON.stringify(data));
+        next({
+            status: "FAILED",
+            data: data
+        });
+    }
+
+}
+
+
+/*/*
+	return hasAccess:true/false 
+*/
+/*function tasksBasicListAccess (data, attachedData, next) {
+
+	let userID = attachedData.requester;
+
+	dbHandler.tasksBasicListAccess (
+		userID,
+		(result) => {
+			next({
+				status: "SUCCESS",
+				data: {
+					hasAccess: result.hasAccess
+				}
+			});
+		},
+		(err) => {
+			console.log("err post tasksBasicListAccess " + JSON.stringify(err));
+			next({
+				status: "FAILED",
+				data: err
+			});
+		}
+	);
+
+}*/
+
+
+
+
+/**
+ *recieves filter object pageNumber, pageSize, &amp; query
+ */
+function tasksLogsRecordsFilter(data, attachedData, next) {
+    /*
+    	TODO: first AUTHENTICATE that only A.roshdy or a sourced identified users can run this output
+    */
+
+    tasksLogsRecordsAccess(data, attachedData, (result) => {
+        if (result.status != "SUCCESS" || (!result.data.hasOwnProperty("hasAccess"))) {
+            next({
+                status: "FAILED",
+                errMsg: "User doesn't has access"
+            });
+        } else if (result.data.hasAccess == true) {
+            // user has access
+            let missing = helpers.missingProperties(["pageNumber", "pageSize"], data);
+            if (missing != false) {
+                let errMsg = "Missing fields: " + JSON.stringify(missing);
+                next({
+                    status: "FAILED",
+                    data: errMsg
+                });
+            }
+            dbHandler.tasksLogsRecordsFilter(
+                data,
+                (result) => {
+                    next({
+                        status: "SUCCESS",
+                        data: result
+                    })
+                },
+                (err) => {
+                    console.log(SCRIPT_NAME + " tasksLogsRecordsFilter" + JSON.stringify(err));
+                    next({
+                        status: "FAILED",
+                        data: err
+                    })
+                }
+            )
+        } else {
+            next({
+                status: "FAILED",
+                errMsg: "Internal error, can't AUTHENTICATE user can access logs record"
+            })
+        }
+    })
+}
+
+
+
+
+/**
+ * - check user in attachedData (connected) have access to tasksLogsRecords
+ *	return hasAccess boolean in success state
+ *	source: db.accessibility, name: "tasksLogs.records", check if users list contains sent user.
+ * @function tasksLogsRecordsAccess - serv/Tasks.js
+ * @param {*} data 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+function tasksLogsRecordsAccess(data, attachedData, next) {
+    /*
+    	TODO: check if the connected user can access this data
+    */
+
+    //validation
+    // no need attachedData already has userID
+
+    let userID = attachedData.requester;
+
+    dbHandler.tasksLogsRecordsAccess(
+        userID,
+        (result) => {
+            next({
+                status: "SUCCESS",
+                data: {
+                    hasAccess: result.hasAccess
+                }
+            });
+        },
+        (err) => {
+            console.log("err post tasksLogsRecordsAccess" + JSON.stringify(err));
+            next({
+                status: "FAILED",
+                data: err
+            });
+        }
+    );
+
+
+}
+
+
+
+
+
+
+
+
+
+/**
+ * FIRST CHECK IF USER CAN SEE THIS TASK DATA: 
+ *    BY either of this action, call services marshal to call function that validate
+ *		 or directly check in the data base if this user exist in the task data responsibilities
+ * @function taskAccess - in Tasks.js
+ * @param {*} data 
+ * @param {*} attachedData 
+ * @param {*} next 
+ */
+function taskAccess(data, attachedData, next) {
+
+    if (!data.hasOwnProperty("taskID")) {
+        console.log(SCRIPT_NAME + " taskAccess no taskID in data: " + JSON.stringify(data));
+        next({
+            status: "FAILED",
+            data: {
+                errMsg: "No TaskID sent",
+                hasAccess: false
+            }
+        });
+        return;
+    }
+    let taskID = data.taskID;
+
+    dbHandler.taskAccess(
+        taskID,
+        attachedData.requester,
+        (result) => {
+            next({
+                status: "SUCCESS",
+                data: {
+                    hasAccess: result.hasAccess
+                }
+            });
+        },
+        (err) => {
+            next({
+                status: "FAILED",
+                data: {
+                    hasAccess: false,
+                    errMsg: ("database error: " + JSON.stringify(err))
+                }
+            });
+        }
+    )
+
+
+}
+
+
+
+/**
+ *
+ */
+function comments(data, attachedData, next) {
+
+    function failed(errMsg) {
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+    }
+
+    //validation
+    let missing = helpers.missingProperties(["taskID", "subtaskID"], data);
+    if (missing !== false) { // missing property, respond with error
+        failed("Missing fields: " + JSON.stringify(missing));
+        return;
+    }
+
+    taskAccess({ taskID: data.taskID }, attachedData, (envelope) => {
+        if (envelope.status != "SUCCESS") {
+            failed("error while checking accessibility msg: " + envelope.data);
+            return;
+        }
+        if (!envelope.data.hasAccess) {
+            failed("No task found or user can't access this task: " + JSON.stringify(envelope.data));
+            return;
+        }
+        // here user has access to this task.
+        getComments();
+    })
+
+    function getComments() {
+        dbHandler.comments(
+            data.subtaskID,
+            (result) => { // success
+                next({
+                    status: "SUCCESS",
+                    data: result
+                });
+            },
+            (err) => {
+                failed(err);
+            }
+        )
+    }
+
+}
+
+
+
+
+/**
+ * 
+ */
+// {taskID, subtaskID, comment}, no data return, but returns success or fail 
+function insertComment(data, attachedData, next) {
+    function failed(errMsg) {
+        next({
+            status: "FAILED",
+            data: errMsg
+        });
+    }
+
+    // validation.
+    let missings = helpers.missingProperties(["taskID", "subtaskID", "comment"], data);
+    if (missings != false) {
+        failed("Missing fields: " + JSON.stringify(missings));
+        return;
+    }
+
+    //check if user can access this task
+    taskAccess({ taskID: data.taskID }, attachedData, (envelope) => {
+        if (envelope.status != "SUCCESS") {
+            failed("error while checking accessibility msg: " + envelope.data);
+            return;
+        }
+        if (!envelope.data.hasAccess) {
+            failed("No task found or user can't access this task: " + JSON.stringify(envelope.data));
+            return;
+        }
+        // here user has access to this task.
+        proceedSubtaskCheck();
+    });
+
+
+    // check if subtask exist in this task
+    function proceedSubtaskCheck() {
+        dbHandler.taskContainsSubtask(
+            data.taskID,
+            data.subtaskID,
+            (result) => { // success
+                if (result.hasSubtask != true) {
+                    failed({ hasAccess: false });
+                    return;
+                }
+                proceedInsert();
+            },
+            (err) => {
+                failed(err);
+            }
+        )
+    }
+
+
+    // insert comment 
+    function proceedInsert() {
+
+        let commentData = {
+            taskID: data.taskID,
+            subtaskID: data.subtaskID,
+            comment: data.comment
+        }
+
+        dbHandler.insertComment(
+            commentData,
+            attachedData.requester,
+            (result) => { // success 
+                next({
+                    status: "SUCCESS",
+                    data: {}
+                });
+            },
+            (err) => { // fail (including no modification)
+                failed(err);
+            }
+        );
+    }
+
+}
+
+
+
+
+
+/**
+ * [statesPreData for states preData]
+ * @param  {object}   data         [empty]
+ * @param  {object}   attachedData [user data on this session]
+ * @param  {callback} next         [list of states predata: states: [{_id, val}]]
+ */
+function statesPreData(data, attachedData, next) {
+
+    dbHandler.statesPreData(
+        (result) => { //success
+            next({
+                status: "SUCCESS",
+                data: result.states
+            });
+        },
+        (err) => {
+            fail({
+                status: "FAILED",
+                data: err
+            });
+        }
+    )
+}
+
+function insertNewState(data, attachedData, next) {
+    let missing = helpers.missingProperties(["stateID", "taskID", "notes"], data);
+    if (missing != false) {
+        next({
+            status: "FAILED",
+            data: "missing properties: " + JSON.stringify(missing)
+        });
+        return;
+    }
+
+    //authentication
+    taskAccess({ taskID: data.taskID },
+        attachedData,
+        (envelope) => { // NEXT
+            if (envelope.status == "SUCCESS") {
+                if (envelope.data.hasAccess) {
+                    proceedInsert(); // here we call get task data
+                } else {
+                    next({
+                        status: "SUCCESS",
+                        data: { hasAccess: false }
+                    });
+                }
+            } else {
+                next({
+                    status: "FAILED",
+                    data: envelope.data
+                })
+            }
+        }
+    );
+
+    function proceedInsert() {
+        //preparing data
+        let preparedData = {
+            task: data.taskID,
+            state: data.stateID,
+            time: attachedData.time,
+            by: attachedData.requester,
+            notes: data.notes
+        }
+
+        dbHandler.insertNewState(
+            preparedData,
+            (result) => { // success
+                next({
+                    status: "SUCCESS",
+                    data: result
+                })
+            },
+            (err) => {
+                next({
+                    status: "FAILED",
+                    data: err
+                });
+            }
+        )
+    }
+
+}
+
+
+// recieves {taskID}, gives: {_id, task, states[{_id, by, state, notes}]}
+/**
+ * [taskStates gets taskID, and responds with the task states first check if user has access to this task]
+ * success: gives: {_id, task, states[{_id, by, state, notes}, ..]}
+ * @param  {object}   data         recieves: taskID
+ * @param  {object}   attachedData [description]
+ * @param  {Function} next         [description]
+ */
+function taskStates(data, attachedData, next) {
+    //validation
+    let missing = helpers.missingProperties(["taskID"], data);
+    if (missing != false) {
+        next({
+            status: "FAILED",
+            data: "missing properties: " + JSON.stringify(missing)
+        });
+        return;
+    }
+
+    //authentication
+    taskAccess({ taskID: data.taskID },
+        attachedData,
+        (envelope) => { // NEXT
+            if (envelope.status == "SUCCESS") {
+                if (envelope.data.hasAccess) {
+                    proceedGetStates(); // here we call get task data
+                } else {
+                    next({
+                        status: "SUCCESS",
+                        data: { hasAccess: false }
+                    });
+                }
+            } else {
+                next({
+                    status: "FAILED",
+                    data: envelope.data
+                })
+            }
+        }
+    );
+
+    //states.
+    function proceedGetStates() {
+
+        dbHandler.getTaskStates(
+            data.taskID,
+            (result) => { // success
+                if (result == null) {
+                    result = [];
+                }
+                next({
+                    status: "SUCCESS",
+                    data: result
+                });
+            },
+            (err) => { // fail
+                next({
+                    status: "FAILED",
+                    data: err
+                })
+            }
+        )
+    }
+
+
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Document.html">Document</a></li><li><a href="Field.html">Field</a></li><li><a href="Socket.html">Socket</a></li></ul><h3>Events</h3><ul><li><a href="click%2520-%2520selected%2520est.html#.event:infiltertaskslist"> in filter tasks list</a></li><li><a href="global.html#event:change-projectfilterlist">change - project filter list</a></li><li><a href="global.html#event:change-handlingmultiselectfornewtask">change -handling multi select for newtask</a></li><li><a href="global.html#event:change-overdueintaskslist">change -overdue in tasks list</a></li><li><a href="global.html#event:click-ifprojectBasedcategorytasksettingischecked">click -  if projectBased category task setting is checked</a></li><li><a href="global.html#event:click-ifpubliccategorytasksettingischecked">click -  if public category task setting is checked</a></li><li><a href="global.html#event:click-closetaskviewmodal">click - close task view modal</a></li><li><a href="global.html#event:click-ifpublicprojecttasksettingischecked">click - if public project task setting is checked</a></li><li><a href="global.html#event:click-paginationfortaskslist">click - pagination for tasks list</a></li><li><a href="global.html#event:click-paginationlogrecord">click - pagination log record</a></li><li><a href="global.html#event:click-subtasksaddedinnewtaskform">click - subtasks added in new task form</a></li><li><a href="global.html#event:EncryptionResponder">EncryptionResponder</a></li><li><a href="global.html#event:submit-addsubtask">submit - add subtask</a></li><li><a href="global.html#event:submit-submitlogform">submit - submit log form</a></li><li><a href="global.html#event:submit-submittaskafteredit">submit - submit task after edit</a></li><li><a href="global.html#event:submit-sendtasksfilterobj">submit -send tasks filter obj</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addLocationIfNew">addLocationIfNew</a></li><li><a href="global.html#addNewCategory-sentcategoryobjecttothisfunction">addNewCategory - sent category object to this function</a></li><li><a href="global.html#addNewProject-sentprojectobjecttothisfunction">addNewProject - sent project object to this function</a></li><li><a href="global.html#cachedUsers">cachedUsers</a></li><li><a href="global.html#clearNewTaskInputs">clearNewTaskInputs</a></li><li><a href="global.html#clearNewTaskInputs-clearnewtasksinputs">clearNewTaskInputs - clear new tasks inputs</a></li><li><a href="global.html#comments">comments</a></li><li><a href="global.html#dataToSend">dataToSend</a></li><li><a href="global.html#deleteSubTaskS">deleteSubTaskS</a></li><li><a href="global.html#editTask">editTask</a></li><li><a href="global.html#EditTaskModal">EditTaskModal</a></li><li><a href="global.html#fillEditTaskForm">fillEditTaskForm</a></li><li><a href="global.html#fillLogRecordTable">fillLogRecordTable</a></li><li><a href="global.html#fillNewTaskPreData">fillNewTaskPreData</a></li><li><a href="global.html#fillOutputsOfTaskView">fillOutputsOfTaskView</a></li><li><a href="global.html#fillPreData">fillPreData</a></li><li><a href="global.html#fillSubTasksList">fillSubTasksList</a></li><li><a href="global.html#fillTableLogForSubTask">fillTableLogForSubTask</a></li><li><a href="global.html#fillTableOfLogProgress-filltableoflogprogress">fillTableOfLogProgress - fill table of log progress</a></li><li><a href="global.html#fillTaskLogProgressData">fillTaskLogProgressData</a></li><li><a href="global.html#fillTasksListTable">fillTasksListTable</a></li><li><a href="global.html#fillTasksSettingsPreData">fillTasksSettingsPreData</a></li><li><a href="global.html#getCommentsList">getCommentsList</a></li><li><a href="global.html#getCookie">getCookie</a></li><li><a href="global.html#GetFilteredData">GetFilteredData</a></li><li><a href="global.html#GetFilteredDataLogRecord">GetFilteredDataLogRecord</a></li><li><a href="global.html#getFilterObject">getFilterObject</a></li><li><a href="global.html#getIDsAndValuesFormAnyForm">getIDsAndValuesFormAnyForm</a></li><li><a href="global.html#getServiceReciever">getServiceReciever</a></li><li><a href="global.html#GETspecificTask">GETspecificTask</a></li><li><a href="global.html#getTasksIDAndName">getTasksIDAndName</a></li><li><a href="global.html#getTasksStatesPreData">getTasksStatesPreData</a></li><li><a href="global.html#getTaskStates">getTaskStates</a></li><li><a href="global.html#getUsers">getUsers</a></li><li><a href="global.html#getUsersIdentifiers">getUsersIdentifiers</a></li><li><a href="global.html#insertComment">insertComment</a></li><li><a href="global.html#insertLogProgress">insertLogProgress</a></li><li><a href="global.html#insertLogRecord">insertLogRecord</a></li><li><a href="global.html#insertNewState">insertNewState</a></li><li><a href="global.html#isValidEnvelope-">isValidEnvelope -</a></li><li><a href="global.html#loadLogRecordFirstTime">loadLogRecordFirstTime</a></li><li><a href="global.html#loadNewTaskData-getpreDataofnewtasktofilllistsinnewtaskform">loadNewTaskData - get preData of new task to fill lists in new task form</a></li><li><a href="global.html#loadTasksFirstTime">loadTasksFirstTime</a></li><li><a href="global.html#missingProperties">missingProperties</a></li><li><a href="global.html#postServiceResponse">postServiceResponse</a></li><li><a href="global.html#preHomeAuth-HOMEPAGESERVING">preHomeAuth -HOME PAGE SERVING</a></li><li><a href="global.html#reciever">reciever</a></li><li><a href="global.html#reciever-services/">reciever - services/</a></li><li><a href="global.html#request">request</a></li><li><a href="global.html#respondsCallbacks">respondsCallbacks</a></li><li><a href="global.html#retrieveEditTaskInputs">retrieveEditTaskInputs</a></li><li><a href="global.html#retrieveNewTaskInputs">retrieveNewTaskInputs</a></li><li><a href="global.html#servicesRequests">servicesRequests</a></li><li><a href="global.html#setCookie">setCookie</a></li><li><a href="global.html#statesPreData">statesPreData</a></li><li><a href="global.html#submitNewComment">submitNewComment</a></li><li><a href="global.html#submitNewTask-newtaskobjectwillbesenttoit">submitNewTask - new task object will be sent to it</a></li><li><a href="global.html#taskContainsSubtask">taskContainsSubtask</a></li><li><a href="global.html#taskNewState">taskNewState</a></li><li><a href="global.html#tasksLogsRecordsFilter">tasksLogsRecordsFilter</a></li><li><a href="global.html#tasksPreData">tasksPreData</a></li><li><a href="global.html#taskStates">taskStates</a></li><li><a href="global.html#userAssignedTasks">userAssignedTasks</a></li><li><a href="global.html#userTasks">userTasks</a></li><li><a href="global.html#verifyUser">verifyUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Mar 18 2021 16:55:02 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
